@@ -1,0 +1,17 @@
+# Timer carousel-screen toggle.
+#
+# Unlike the other screens, the timer cannot be a full standalone package: its logic is
+# wired into core components (the voice_assistant on_timer_* triggers, the shared alarm
+# overlay, timer_render, the home-screen badge, the knob). So the timer FEATURE always
+# lives in guition-va.yaml. This tiny package only adds the timer SCREEN to the swipe
+# carousel (base id 2).
+#
+# Remove this file from your config's package "files:" list to hide the timer screen from
+# the carousel. Voice timers ("set a 5 minute timer"), the alarm and the home-screen
+# countdown badge keep working - you just can't swipe to the on-device timer screen.
+
+esphome:
+  on_boot:
+    - priority: 680
+      then:
+        - lambda: 'id(g_order)[id(g_order_n)++] = 2;'   # add the timer screen to the carousel

@@ -36,10 +36,8 @@ esphome:
         - lambda: |-
             id(g_order_n) = 0;
             id(g_order)[id(g_order_n)++] = 0;   // clock (always on)
-    - priority: 680
-      then:
-        - lambda: |-
-            id(g_order)[id(g_order_n)++] = 2;   // timer (still in core)
+            // timer (base 2) is registered by screens/timer.yaml so its carousel slot is optional;
+            // the timer FEATURE (voice timers, alarm, home badge) stays here in the core always.
     - priority: -100
       then:
         - script.execute: night_apply    # brightness per g_bright / night mode
