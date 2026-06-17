@@ -126,7 +126,8 @@ captive_portal:
 time:
   - platform: homeassistant
     id: ha_time
-    timezone: "CET-1CEST,M3.5.0,M10.5.0/3"   # Poland - offset applied immediately, without waiting for the zone from HA
+    # No manual timezone: let Home Assistant provide its configured zone (authoritative).
+    # (A hard-coded POSIX TZ string here was intermittently not applied -> clock showed UTC.)
 
 ###############################################################################
 # AUDIO - DAC PCM5100A (out) + microphone + voice assistant (HA Assist)
