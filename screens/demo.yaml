@@ -33,9 +33,12 @@ globals:
     restore_value: no
     initial_value: '0'
   # Tracks whether WE currently own the LED ring, so we can release it on leave.
+  # Persistent so that after a reboot (the ring component restores its last colour) the
+  # 80ms loop below sees "we owned it", and since we boot onto the home screen it turns
+  # the ring back off instead of leaving the demo colour stuck on.
   - id: g_demo_ring_on
     type: bool
-    restore_value: no
+    restore_value: yes
     initial_value: 'false'
 
 script:
