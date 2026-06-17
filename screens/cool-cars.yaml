@@ -7,16 +7,6 @@ esphome:
     - priority: 670
       then:
         - lambda: 'id(g_present)[3] = true;'   # register after clock/player/timer
-    - priority: 650
-      then:
-        # shared "Games" settings entry (reset scores) - added once if any game is present
-        - lambda: |-
-            if (!id(g_set_games_done)) {
-              id(g_set_games_done) = true;
-              if (id(g_set_n) > 0) id(g_set_labels) += "\n";
-              id(g_set_labels) += "Games";
-              id(g_set_items)[id(g_set_n)++] = 14;
-            }
 
 globals:
   # --- "Car" game (page_game screen, g_base==3) ---

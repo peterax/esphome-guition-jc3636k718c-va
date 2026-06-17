@@ -56,6 +56,7 @@ esphome:
             id(g_set_games_done) = false;
             for (int i = 0; i < 8; i++) id(g_present)[i] = false;
             id(g_present)[0] = true;   // clock is always present
+            id(g_wgrp_n) = 0; id(g_wgrp_labels) = ""; id(g_wgrp_idx) = 0;
     - priority: 790
       then:
         - lambda: |-
@@ -96,9 +97,13 @@ esphome:
             id(g_tile2_glyph) = ic("${tile2_icon}");
             id(g_tile3_glyph) = ic("${tile3_icon}");
             id(g_tile4_glyph) = ic("${tile4_icon}");
-    - priority: 605
+    - priority: 610
       then:
-        - lambda: 'id(g_set_labels) += "\nRestart"; id(g_set_items)[id(g_set_n)++] = 9;'
+        - lambda: |-
+            // Widgets submenu groups - one per present screen that has settings
+            if (id(g_present)[6]) { id(g_wgrp_labels) += (id(g_wgrp_n) ? "\n" : ""); id(g_wgrp_labels) += "Demo";    id(g_wgrp_items)[id(g_wgrp_n)++] = 18; }
+            if (id(g_present)[3] || id(g_present)[4]) { id(g_wgrp_labels) += (id(g_wgrp_n) ? "\n" : ""); id(g_wgrp_labels) += "Games";   id(g_wgrp_items)[id(g_wgrp_n)++] = 14; }
+            if (id(g_present)[5]) { id(g_wgrp_labels) += (id(g_wgrp_n) ? "\n" : ""); id(g_wgrp_labels) += "Weather"; id(g_wgrp_items)[id(g_wgrp_n)++] = 19; }
     - priority: 595
       then:
         - lambda: 'id(g_set_labels) += "\nSystem"; id(g_set_items)[id(g_set_n)++] = 15;'   # always last
@@ -696,6 +701,20 @@ globals:
   - id: g_tile4_glyph
     type: std::string
     restore_value: no
+  - id: g_wgrp_labels    # Widgets submenu: group names (Demo/Games/Weather), built at boot
+    type: std::string
+    restore_value: no
+  - id: g_wgrp_items     # the g_mode each Widgets group opens
+    type: int[8]
+    restore_value: no
+  - id: g_wgrp_n
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_wgrp_idx
+    type: int
+    restore_value: no
+    initial_value: '0'
 
 # Shows the volume arc for ~2 s while turning the knob, then hides it (mode: restart)
 script:
@@ -717,6 +736,7 @@ script:
   - id: settings_build
     then:
       - lambda: 'lv_roller_set_options(id(settings_roller)->obj, id(g_set_labels).c_str(), LV_ROLLER_MODE_NORMAL);'
+      - lambda: 'lv_roller_set_options(id(wid_roller)->obj, id(g_wgrp_labels).c_str(), LV_ROLLER_MODE_NORMAL);'
   # Draws the battery indicator on the home screen. Charging: lightning bolt + green +
   # "filling" animation (icon cycles empty→full). On battery: static level icon.
   - id: batt_render
@@ -829,6 +849,8 @@ script:
             - lvgl.widget.hide: ring_roller
             - lvgl.widget.hide: home_roller
             - lvgl.widget.hide: wid_roller
+            - lvgl.widget.hide: demo_opts_roller
+            - lvgl.widget.hide: wx_opts_roller
           else:
             - lvgl.widget.show: ui_dim
             - lvgl.widget.show: ui_head_bg
@@ -890,21 +912,28 @@ script:
                   - lvgl.widget.show: disp_switch
                   - lvgl.widget.update: { id: disp_switch, state: { checked: !lambda 'return id(g_sub_idx) == 0 ? id(g_show_weather) : id(g_show_climate);' } }
                 else: [ lvgl.widget.hide: home_roller ]
-            - if:   # Widgets (17): per-screen widget toggles (currently the demo screen)
+            - if:   # Widgets (17): list of per-screen groups (Demo / Games / Weather)
                 condition: { lambda: 'return id(g_mode) == 17;' }
                 then:
                   - lvgl.widget.show: wid_roller
-                  - lvgl.roller.update: { id: wid_roller, animated: true, selected_index: !lambda 'return id(g_sub_idx);' }
-                  - lvgl.widget.show: disp_switch
-                  - lvgl.widget.update:
-                      id: disp_switch
-                      state:
-                        checked: !lambda |-
-                          int i = id(g_sub_idx);
-                          if (i == 0) return id(g_demo_border);
-                          if (i == 1) return id(g_demo_led);
-                          return id(g_wx_fahrenheit);
+                  - lvgl.roller.update: { id: wid_roller, animated: true, selected_index: !lambda 'return id(g_wgrp_idx);' }
                 else: [ lvgl.widget.hide: wid_roller ]
+            - if:   # Demo (18): demo screen toggles (border / LED ring)
+                condition: { lambda: 'return id(g_mode) == 18;' }
+                then:
+                  - lvgl.widget.show: demo_opts_roller
+                  - lvgl.roller.update: { id: demo_opts_roller, animated: true, selected_index: !lambda 'return id(g_sub_idx);' }
+                  - lvgl.widget.show: disp_switch
+                  - lvgl.widget.update: { id: disp_switch, state: { checked: !lambda 'return id(g_sub_idx) == 0 ? id(g_demo_border) : id(g_demo_led);' } }
+                else: [ lvgl.widget.hide: demo_opts_roller ]
+            - if:   # Weather (19): weather screen options (unit)
+                condition: { lambda: 'return id(g_mode) == 19;' }
+                then:
+                  - lvgl.widget.show: wx_opts_roller
+                  - lvgl.roller.update: { id: wx_opts_roller, animated: true, selected_index: !lambda 'return id(g_sub_idx);' }
+                  - lvgl.widget.show: disp_switch
+                  - lvgl.widget.update: { id: disp_switch, state: { checked: !lambda 'return id(g_wx_fahrenheit);' } }
+                else: [ lvgl.widget.hide: wx_opts_roller ]
             - if:   # Assistant (13): both items = toggles (0=wake word, 1=beep)
                 condition: { lambda: 'return id(g_mode) == 13;' }
                 then:
@@ -938,7 +967,7 @@ script:
                           return id(g_ring_vol_en);
                 else: [ lvgl.widget.hide: ring_roller ]
             - if:   # we hide ui_big in the list (5), info (7), wake word (8), Display (11)
-                condition: { lambda: 'return id(g_mode) == 5 || id(g_mode) == 7 || id(g_mode) == 9 || id(g_mode) == 11 || id(g_mode) == 12 || id(g_mode) == 13 || id(g_mode) == 14 || id(g_mode) == 15 || id(g_mode) == 16 || id(g_mode) == 17 || id(g_mode) == 21 || id(g_mode) == 22;' }
+                condition: { lambda: 'return id(g_mode) == 5 || id(g_mode) == 7 || id(g_mode) == 9 || id(g_mode) == 11 || id(g_mode) == 12 || id(g_mode) == 13 || id(g_mode) == 14 || id(g_mode) == 15 || id(g_mode) == 16 || id(g_mode) == 17 || id(g_mode) == 18 || id(g_mode) == 19 || id(g_mode) == 21 || id(g_mode) == 22;' }
                 then: [lvgl.widget.hide: ui_big]
                 else: [lvgl.widget.show: ui_big]
             - lvgl.label.update:
@@ -986,6 +1015,8 @@ script:
                   if (m == 15) return std::string("SYSTEM");
                   if (m == 16) return std::string("RING");
                   if (m == 17) return std::string("WIDGETS");
+                  if (m == 18) return std::string("DEMO");
+                  if (m == 19) return std::string("WEATHER");
                   if (m == 21) return std::string("SCORES");
                   if (m == 23) return std::string("BATTERY");
                   if (m == 24) return std::string("SCREEN OFF");
@@ -1276,11 +1307,12 @@ binary_sensor:
           else:
             - if:
                 condition:
-                  lambda: 'return id(g_mode) == 5 || id(g_mode) == 11 || (id(g_mode) >= 12 && id(g_mode) <= 17);'
+                  lambda: 'return id(g_mode) == 5 || id(g_mode) == 11 || (id(g_mode) >= 12 && id(g_mode) <= 19);'
                 then:
                   - lambda: |-
                       if (id(g_mode) == 11) { if (id(g_disp_idx) > 0) id(g_disp_idx)--; }
                       else if (id(g_mode) == 5) { if (id(g_set_idx) > 0) id(g_set_idx)--; }
+                      else if (id(g_mode) == 17) { if (id(g_wgrp_idx) > 0) id(g_wgrp_idx)--; }
                       else { if (id(g_sub_idx) > 0) id(g_sub_idx)--; }
                   - script.execute: ui_render
                 else:
@@ -1330,12 +1362,13 @@ binary_sensor:
           else:
             - if:
                 condition:
-                  lambda: 'return id(g_mode) == 5 || id(g_mode) == 11 || (id(g_mode) >= 12 && id(g_mode) <= 17);'
+                  lambda: 'return id(g_mode) == 5 || id(g_mode) == 11 || (id(g_mode) >= 12 && id(g_mode) <= 19);'
                 then:
                   - lambda: |-
                       if (id(g_mode) == 11) { if (id(g_disp_idx) < 4) id(g_disp_idx)++; }
                       else if (id(g_mode) == 5) { if (id(g_set_idx) < id(g_set_n) - 1) id(g_set_idx)++; }
-                      else { int mx = (id(g_mode) == 15) ? 3 : (id(g_mode) == 13) ? 1 : (id(g_mode) == 16) ? 3 : (id(g_mode) == 12) ? 1 : (id(g_mode) == 17) ? 2 : 0; if (id(g_sub_idx) < mx) id(g_sub_idx)++; }
+                      else if (id(g_mode) == 17) { if (id(g_wgrp_idx) < id(g_wgrp_n) - 1) id(g_wgrp_idx)++; }
+                      else { int mx = (id(g_mode) == 15) ? 3 : (id(g_mode) == 13) ? 1 : (id(g_mode) == 16) ? 3 : (id(g_mode) == 12) ? 1 : (id(g_mode) == 18) ? 1 : 0; if (id(g_sub_idx) < mx) id(g_sub_idx)++; }
                   - script.execute: ui_render
                 else:
                   - if:
@@ -1659,7 +1692,7 @@ touchscreen:
               condition:
                 lambda: 'return id(g_gesture) == 0;'
               then:
-                - lambda: 'id(g_mode) = id(g_set_items)[id(g_set_idx)]; id(g_disp_idx) = 0; id(g_sub_idx) = 0;'
+                - lambda: 'id(g_mode) = id(g_set_items)[id(g_set_idx)]; id(g_disp_idx) = 0; id(g_sub_idx) = 0; id(g_wgrp_idx) = 0;'
                 - script.execute: ui_render
           - if:   # back: swipe right / hold -> "to the right"
               condition:
@@ -1698,14 +1731,25 @@ touchscreen:
           - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 0;' }, then: [ lambda: 'id(g_show_weather) = !id(g_show_weather);', script.execute: disp_apply, script.execute: ui_render ] }
           - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 1;' }, then: [ lambda: 'id(g_show_climate) = !id(g_show_climate);', script.execute: disp_apply, script.execute: ui_render ] }
           - if: { condition: { lambda: 'return id(g_gesture) == 3 || id(g_gesture) == 1;' }, then: [ lambda: 'id(g_mode) = 5;', script.execute: ui_render ] }
-    # === WIDGETS (17) === tap toggles the selected option; right/hold = back
+    # === WIDGETS (17) === list of per-screen groups; tap opens one; right/hold = back to settings
     - if:
         condition: { lambda: 'return id(g_mode0) == 17;' }
         then:
+          - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_wgrp_n) > 0;' }, then: [ lambda: 'id(g_mode) = id(g_wgrp_items)[id(g_wgrp_idx)]; id(g_sub_idx) = 0;', script.execute: ui_render ] }
+          - if: { condition: { lambda: 'return id(g_gesture) == 3 || id(g_gesture) == 1;' }, then: [ lambda: 'id(g_mode) = 5;', script.execute: ui_render ] }
+    # === DEMO (18) === tap toggles border / LED; right/hold = back to Widgets
+    - if:
+        condition: { lambda: 'return id(g_mode0) == 18;' }
+        then:
           - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 0;' }, then: [ lambda: 'id(g_demo_border) = !id(g_demo_border);', script.execute: ui_render ] }
           - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 1;' }, then: [ lambda: 'id(g_demo_led) = !id(g_demo_led);', script.execute: ui_render ] }
-          - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 2;' }, then: [ lambda: 'id(g_wx_fahrenheit) = !id(g_wx_fahrenheit);', script.execute: ui_render ] }
-          - if: { condition: { lambda: 'return id(g_gesture) == 3 || id(g_gesture) == 1;' }, then: [ lambda: 'id(g_mode) = 5;', script.execute: ui_render ] }
+          - if: { condition: { lambda: 'return id(g_gesture) == 3 || id(g_gesture) == 1;' }, then: [ lambda: 'id(g_mode) = 17;', script.execute: ui_render ] }
+    # === WEATHER (19) === tap toggles the unit; right/hold = back to Widgets
+    - if:
+        condition: { lambda: 'return id(g_mode0) == 19;' }
+        then:
+          - if: { condition: { lambda: 'return id(g_gesture) == 0;' }, then: [ lambda: 'id(g_wx_fahrenheit) = !id(g_wx_fahrenheit);', script.execute: ui_render ] }
+          - if: { condition: { lambda: 'return id(g_gesture) == 3 || id(g_gesture) == 1;' }, then: [ lambda: 'id(g_mode) = 17;', script.execute: ui_render ] }
     # === ASSISTANT (13) === tap: 0=toggle wake word, 1=toggle beep; right/hold=back
     - if:
         condition: { lambda: 'return id(g_mode0) == 13;' }
@@ -1726,7 +1770,7 @@ touchscreen:
         condition: { lambda: 'return id(g_mode0) == 14;' }
         then:
           - if: { condition: { lambda: 'return id(g_gesture) == 0;' }, then: [ lambda: 'id(g_mode) = 21;', script.execute: ui_render ] }
-          - if: { condition: { lambda: 'return id(g_gesture) == 3 || id(g_gesture) == 1;' }, then: [ lambda: 'id(g_mode) = 5;', script.execute: ui_render ] }
+          - if: { condition: { lambda: 'return id(g_gesture) == 3 || id(g_gesture) == 1;' }, then: [ lambda: 'id(g_mode) = 17;', script.execute: ui_render ] }
     # === SYSTEM (15) ===
     - if:
         condition: { lambda: 'return id(g_mode0) == 15;' }
@@ -2543,9 +2587,48 @@ lvgl:
               bg_opa: 30%
               radius: 10
             options:
+              - "..."
+            selected_index: 0
+            hidden: true
+        - roller:
+            id: demo_opts_roller
+            align: CENTER
+            y: -14
+            width: 290
+            visible_row_count: 3
+            clickable: false
+            text_font: font_med
+            text_color: 0x466761
+            bg_opa: TRANSP
+            border_width: 0
+            selected:
+              text_color: 0xFFFFFF
+              bg_color: 0xFFB020
+              bg_opa: 30%
+              radius: 10
+            options:
               - "Border"
               - "Demo LED"
-              - "Weather °F"
+            selected_index: 0
+            hidden: true
+        - roller:
+            id: wx_opts_roller
+            align: CENTER
+            y: -14
+            width: 290
+            visible_row_count: 3
+            clickable: false
+            text_font: font_med
+            text_color: 0x466761
+            bg_opa: TRANSP
+            border_width: 0
+            selected:
+              text_color: 0xFFFFFF
+              bg_color: 0xFFB020
+              bg_opa: 30%
+              radius: 10
+            options:
+              - "Fahrenheit"
             selected_index: 0
             hidden: true
         - roller:
