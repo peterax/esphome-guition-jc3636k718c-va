@@ -2173,6 +2173,8 @@ font:
       - "󰋑"
       - "󰔏"
       - "󰖎"
+      - "\U000f09de"
+      - "\U000f09df"
 
 text_sensor:
   - platform: wifi_info     # IP for the Info screen (settings)

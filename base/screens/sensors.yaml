@@ -101,15 +101,26 @@ script:
                   if (v.empty() || v == "unknown" || v == "unavailable") return std::string("--");
                   std::string u = id(g_gl_unit)[id(g_gl_sel)];
                   if (!u.empty()) v += " " + u;
+                  // replace symbols the value font lacks (micro sign, superscripts) so units don't tofu
+                  auto rep = [&](const std::string &a, const std::string &b) {
+                    size_t p; while ((p = v.find(a)) != std::string::npos) v.replace(p, a.size(), b);
+                  };
+                  rep("\xC2\xB5", "u");   // µ -> u
+                  rep("\xC2\xB2", "2");   // ² -> 2
+                  rep("\xC2\xB3", "3");   // ³ -> 3
+                  rep("\xC2\xB9", "1");   // ¹ -> 1
                   return v;
             - lvgl.label.update: { id: gl_name, text: !lambda 'return id(g_gl_name)[id(g_gl_sel)];' }
             - lvgl.widget.update: { id: gl_pos, hidden: !lambda 'int c=0; for(int i=0;i<6;i++) if(id(g_gl_present)[i]) c++; return c<=1;' }
             - lvgl.label.update:
                 id: gl_pos
                 text: !lambda |-
-                  int c=0, pos=0;
-                  for (int i=0;i<6;i++) { if (id(g_gl_present)[i]) { c++; if (i==id(g_gl_sel)) pos=c; } }
-                  char b[12]; snprintf(b, sizeof(b), "%d/%d", pos, c); return std::string(b);
+                  std::string d;                       // slider dots: active = bigger (circle-medium), rest = circle-small
+                  for (int i=0;i<6;i++) {
+                    if (!id(g_gl_present)[i]) continue;
+                    d += (i == id(g_gl_sel)) ? "\U000f09de" : "\U000f09df";
+                  }
+                  return d;
 
 text_sensor:
   - platform: homeassistant
@@ -209,5 +220,5 @@ lvgl:
         - label: { id: gl_icon, align: CENTER, y: -70, text: "", text_font: icons34, text_color: 0xBFD2DA }
         - label: { id: gl_value, align: CENTER, y: -6, width: 320, text_align: CENTER, long_mode: clip, text: "--", text_font: montserrat_34, text_color: 0xFFFFFF }
         - label: { id: gl_name, align: CENTER, y: 40, width: 300, text_align: CENTER, long_mode: clip, text: "", text_font: font_med, text_color: 0x9FC7BE }
-        - label: { id: gl_pos, align: CENTER, y: 86, text: "", text_font: font_artist, text_color: 0x466761, hidden: true }
+        - label: { id: gl_pos, align: CENTER, y: 88, text: "", text_font: icons18, text_color: 0x6F9A92, hidden: true }
         - label: { id: gl_empty, align: CENTER, text: "Set glance sensors", text_font: font_med, text_color: 0x466761, hidden: true }
