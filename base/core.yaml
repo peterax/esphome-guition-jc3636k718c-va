@@ -1549,7 +1549,10 @@ light:
     num_leds: 13
     rgb_order: GRB
     chipset: WS2812
-    rmt_symbols: 64
+    rmt_symbols: 128
+    use_dma: true                     # feed RMT via DMA (no CPU interrupts) so heavy display work
+                                      # (screen transitions) can't disrupt the WS2812 timing -> no stray
+                                      # red/white pixel flashes. ESP32-S3 supports RMT DMA.
     default_transition_length: 0s     # no fade - reactions should be instant
     restore_mode: RESTORE_DEFAULT_OFF
     effects:
