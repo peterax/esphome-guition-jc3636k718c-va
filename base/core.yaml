@@ -3049,7 +3049,7 @@ lvgl:
             widgets:
               - obj: { id: tile1_chip, align: CENTER, y: -16, width: 54, height: 54, radius: 27, bg_color: 0x1E2430, bg_opa: COVER, border_width: 0, clickable: false, scrollable: false }
               - label: { id: tile1_ic, align: CENTER, y: -16, text: "", text_font: icons34, text_color: 0x707A8A }
-              - label: { id: tile1_lbl, align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile1_name}", text_font: font_artist, text_color: 0x9AA3B0, text_letter_spacing: 2 }
+              - label: { id: tile1_lbl, align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile1_name}", text_font: font_artist, text_color: 0x9AA3B0, text_letter_space: 2 }
         - button:
             id: tile2
             align: CENTER
@@ -3071,7 +3071,7 @@ lvgl:
             widgets:
               - obj: { id: tile2_chip, align: CENTER, y: -16, width: 54, height: 54, radius: 27, bg_color: 0x1E2430, bg_opa: COVER, border_width: 0, clickable: false, scrollable: false }
               - label: { id: tile2_ic, align: CENTER, y: -16, text: "", text_font: icons34, text_color: 0x707A8A }
-              - label: { id: tile2_lbl, align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile2_name}", text_font: font_artist, text_color: 0x9AA3B0, text_letter_spacing: 2 }
+              - label: { id: tile2_lbl, align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile2_name}", text_font: font_artist, text_color: 0x9AA3B0, text_letter_space: 2 }
         - button:
             id: tile3
             align: CENTER
@@ -3093,7 +3093,7 @@ lvgl:
             widgets:
               - obj: { id: tile3_chip, align: CENTER, y: -16, width: 54, height: 54, radius: 27, bg_color: 0x1E2430, bg_opa: COVER, border_width: 0, clickable: false, scrollable: false }
               - label: { id: tile3_ic, align: CENTER, y: -16, text: "", text_font: icons34, text_color: 0x707A8A }
-              - label: { id: tile3_lbl, align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile3_name}", text_font: font_artist, text_color: 0x9AA3B0, text_letter_spacing: 2 }
+              - label: { id: tile3_lbl, align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile3_name}", text_font: font_artist, text_color: 0x9AA3B0, text_letter_space: 2 }
         - button:
             id: tile4
             align: CENTER
@@ -3115,4 +3115,4 @@ lvgl:
             widgets:
               - obj: { id: tile4_chip, align: CENTER, y: -16, width: 54, height: 54, radius: 27, bg_color: 0x1E2430, bg_opa: COVER, border_width: 0, clickable: false, scrollable: false }
               - label: { id: tile4_ic, align: CENTER, y: -16, text: "", text_font: icons34, text_color: 0x707A8A }
-              - label: { id: tile4_lbl, align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile4_name}", text_font: font_artist, text_color: 0x9AA3B0, text_letter_spacing: 2 }
+              - label: { id: tile4_lbl, align: CENTER, y: 26, width: 100, long_mode: wrap, text_align: CENTER, text: "${tile4_name}", text_font: font_artist, text_color: 0x9AA3B0, text_letter_space: 2 }
