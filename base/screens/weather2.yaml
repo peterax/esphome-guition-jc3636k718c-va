@@ -1,0 +1,201 @@
+# Weather 2 - ALTERNATIVE weather screen (base id 10), a more modern look.
+# This is a second weather screen meant to sit NEXT TO the original `weather.yaml` so you can
+# compare them in the carousel and pick one. It REUSES weather.yaml's data (the g_wx_* globals,
+# the HA sensors and the icons_wx font), so weather.yaml must also be included in your `files:`.
+# It only adds its own page + render + a bigger icon font - no duplicate sensors/globals.
+#
+# Modern touches: a full-screen background tinted to the selected day's weather, a large
+# colour-coded condition icon + temperature in the centre, a soft glow behind the selected day on
+# the rim, and a clean uniform day ring. Remove it: drop this line from `files:`.
+
+esphome:
+  on_boot:
+    - priority: 654
+      then:
+        - lambda: 'id(g_present)[10] = true;'   # register the modern weather screen
+
+# Bigger weather glyphs for the centre hero icon (same glyph set as weather.yaml's icons_wx).
+font:
+  - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf"
+    id: icons_wx_big
+    size: 64
+    bpp: 4
+    glyphs: ["󰖙", "󰖔", "󰖕", "󰖑", "󰖝", "󰖓", "󰖖", "󰖗", "󰖘", "󰖐"]
+
+globals:
+  - id: g_wx2_sel      # render cache: the selected day's condition string
+    type: std::string
+    restore_value: no
+  - id: g_wx2_tc       # render cache: the selected day's temperature in C (for colour-coding)
+    type: int
+    restore_value: no
+    initial_value: '-127'
+
+script:
+  - id: wx2_render
+    then:
+      # cache the selected day's condition + temperature
+      - lambda: |-
+          int d = id(g_wx_day);
+          bool has = (id(g_wx_n) > 0 && d < id(g_wx_n));
+          id(g_wx2_sel) = has ? id(g_wx_cond)[d] : id(g_wx_state_cur);
+          id(g_wx2_tc)  = has ? id(g_wx_hi)[d] : id(g_wx_now);
+      # centre: full day name (small caps)
+      - lvgl.label.update:
+          id: wx2_day
+          text: !lambda |-
+            int d = id(g_wx_day);
+            if (id(g_wx_n) <= 0 || d >= id(g_wx_n)) return std::string("TODAY");
+            std::string s = id(g_wx_name)[d];
+            if (s == "Mon") return std::string("MONDAY");
+            if (s == "Tue") return std::string("TUESDAY");
+            if (s == "Wed") return std::string("WEDNESDAY");
+            if (s == "Thu") return std::string("THURSDAY");
+            if (s == "Fri") return std::string("FRIDAY");
+            if (s == "Sat") return std::string("SATURDAY");
+            if (s == "Sun") return std::string("SUNDAY");
+            return s;
+      # centre: hero condition glyph
+      - lvgl.label.update:
+          id: wx2_bigicon
+          text: !lambda |-
+            int d = id(g_wx_day);
+            if (id(g_wx_n) > 0 && d < id(g_wx_n)) return id(g_wx_icon)[d];
+            // current condition -> glyph
+            std::string s = id(g_wx_state_cur);
+            if (s == "sunny") return std::string("󰖙");
+            if (s == "clear-night") return std::string("󰖔");
+            if (s == "partlycloudy") return std::string("󰖕");
+            if (s == "fog") return std::string("󰖑");
+            if (s == "windy" || s == "windy-variant") return std::string("󰖝");
+            if (s == "lightning" || s == "lightning-rainy") return std::string("󰖓");
+            if (s == "pouring") return std::string("󰖖");
+            if (s == "rainy") return std::string("󰖗");
+            if (s == "snowy" || s == "snowy-rainy" || s == "hail") return std::string("󰖘");
+            return std::string("󰖐");
+      # centre: big temperature
+      - lvgl.label.update:
+          id: wx2_temp
+          text: !lambda |-
+            int d = id(g_wx_day);
+            bool f = id(g_wx_fahrenheit);
+            char u = f ? 'F' : 'C';
+            if (id(g_wx_n) <= 0 || d >= id(g_wx_n)) {
+              if (id(g_wx_now) > -100) { int n = id(g_wx_now); if (f) n = n*9/5+32; char b[12]; snprintf(b,sizeof(b),"%d°%c",n,u); return std::string(b); }
+              return std::string("--");
+            }
+            int hi = id(g_wx_hi)[d], lo = id(g_wx_lo)[d];
+            if (f) { hi = hi*9/5+32; lo = lo*9/5+32; }
+            char b[24]; snprintf(b,sizeof(b),"%d° / %d°",hi,lo); return std::string(b);
+      # centre: condition text
+      - lvgl.label.update:
+          id: wx2_cond
+          text: !lambda |-
+            if (id(g_wx_n) <= 0) return std::string("Add the HA forecast helper");
+            std::string s = id(g_wx2_sel);
+            if (s == "sunny") return std::string("Sunny");
+            if (s == "clear-night") return std::string("Clear");
+            if (s == "partlycloudy") return std::string("Partly Cloudy");
+            if (s == "cloudy") return std::string("Cloudy");
+            if (s == "fog") return std::string("Fog");
+            if (s == "rainy") return std::string("Rainy");
+            if (s == "pouring") return std::string("Heavy Rain");
+            if (s == "lightning" || s == "lightning-rainy") return std::string("Storm");
+            if (s == "snowy" || s == "snowy-rainy") return std::string("Snow");
+            if (s == "hail") return std::string("Hail");
+            if (s == "windy" || s == "windy-variant") return std::string("Windy");
+            if (s == "exceptional") return std::string("Severe");
+            return s;
+      # soft glow behind the selected day on the rim
+      - lvgl.widget.update:
+          id: wx2_glow
+          hidden: !lambda 'return id(g_wx_n) <= 0;'
+          x: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(140.0f * sinf(id(g_wx_day) * 6.2831853f / n));'
+          y: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(-140.0f * cosf(id(g_wx_day) * 6.2831853f / n));'
+      # day icons spread around the rim (uniform clean colour; positions + glyphs set here)
+      - lvgl.widget.update: { id: wx2_d0, hidden: !lambda 'return 0 >= id(g_wx_n);', x: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(140.0f * sinf(0 * 6.2831853f / n));', y: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(-140.0f * cosf(0 * 6.2831853f / n));' }
+      - lvgl.label.update:  { id: wx2_d0, text: !lambda 'return id(g_wx_n) > 0 ? id(g_wx_icon)[0] : std::string("");' }
+      - lvgl.widget.update: { id: wx2_d1, hidden: !lambda 'return 1 >= id(g_wx_n);', x: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(140.0f * sinf(1 * 6.2831853f / n));', y: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(-140.0f * cosf(1 * 6.2831853f / n));' }
+      - lvgl.label.update:  { id: wx2_d1, text: !lambda 'return id(g_wx_n) > 1 ? id(g_wx_icon)[1] : std::string("");' }
+      - lvgl.widget.update: { id: wx2_d2, hidden: !lambda 'return 2 >= id(g_wx_n);', x: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(140.0f * sinf(2 * 6.2831853f / n));', y: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(-140.0f * cosf(2 * 6.2831853f / n));' }
+      - lvgl.label.update:  { id: wx2_d2, text: !lambda 'return id(g_wx_n) > 2 ? id(g_wx_icon)[2] : std::string("");' }
+      - lvgl.widget.update: { id: wx2_d3, hidden: !lambda 'return 3 >= id(g_wx_n);', x: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(140.0f * sinf(3 * 6.2831853f / n));', y: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(-140.0f * cosf(3 * 6.2831853f / n));' }
+      - lvgl.label.update:  { id: wx2_d3, text: !lambda 'return id(g_wx_n) > 3 ? id(g_wx_icon)[3] : std::string("");' }
+      - lvgl.widget.update: { id: wx2_d4, hidden: !lambda 'return 4 >= id(g_wx_n);', x: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(140.0f * sinf(4 * 6.2831853f / n));', y: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(-140.0f * cosf(4 * 6.2831853f / n));' }
+      - lvgl.label.update:  { id: wx2_d4, text: !lambda 'return id(g_wx_n) > 4 ? id(g_wx_icon)[4] : std::string("");' }
+      - lvgl.widget.update: { id: wx2_d5, hidden: !lambda 'return 5 >= id(g_wx_n);', x: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(140.0f * sinf(5 * 6.2831853f / n));', y: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(-140.0f * cosf(5 * 6.2831853f / n));' }
+      - lvgl.label.update:  { id: wx2_d5, text: !lambda 'return id(g_wx_n) > 5 ? id(g_wx_icon)[5] : std::string("");' }
+      - lvgl.widget.update: { id: wx2_d6, hidden: !lambda 'return 6 >= id(g_wx_n);', x: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(140.0f * sinf(6 * 6.2831853f / n));', y: !lambda 'int n=id(g_wx_n); if(n<1)n=1; return (int) lroundf(-140.0f * cosf(6 * 6.2831853f / n));' }
+      - lvgl.label.update:  { id: wx2_d6, text: !lambda 'return id(g_wx_n) > 6 ? id(g_wx_icon)[6] : std::string("");' }
+      # --- colours by condition: background tint + hero icon + glow (static hex via if-chain) ---
+      - lvgl.widget.update: { id: wx2_bg, bg_color: 0x141A2E }                 # default
+      - lvgl.label.update:  { id: wx2_bigicon, text_color: 0x9FC7BE }
+      - lvgl.widget.update: { id: wx2_glow, bg_color: 0x9FC7BE }
+      - if: { condition: { lambda: 'return id(g_wx2_sel) == "sunny";' }, then: [ lvgl.widget.update: { id: wx2_bg, bg_color: 0x2E2410 }, lvgl.label.update: { id: wx2_bigicon, text_color: 0xFFC247 }, lvgl.widget.update: { id: wx2_glow, bg_color: 0xFFC247 } ] }
+      - if: { condition: { lambda: 'return id(g_wx2_sel) == "clear-night";' }, then: [ lvgl.widget.update: { id: wx2_bg, bg_color: 0x12183A }, lvgl.label.update: { id: wx2_bigicon, text_color: 0xBCD0FF }, lvgl.widget.update: { id: wx2_glow, bg_color: 0xBCD0FF } ] }
+      - if: { condition: { lambda: 'return id(g_wx2_sel) == "partlycloudy";' }, then: [ lvgl.widget.update: { id: wx2_bg, bg_color: 0x1C2838 }, lvgl.label.update: { id: wx2_bigicon, text_color: 0xCAD6E8 }, lvgl.widget.update: { id: wx2_glow, bg_color: 0xCAD6E8 } ] }
+      - if: { condition: { lambda: 'return id(g_wx2_sel) == "cloudy" || id(g_wx2_sel) == "fog";' }, then: [ lvgl.widget.update: { id: wx2_bg, bg_color: 0x222730 }, lvgl.label.update: { id: wx2_bigicon, text_color: 0xB7C0CC }, lvgl.widget.update: { id: wx2_glow, bg_color: 0xB7C0CC } ] }
+      - if: { condition: { lambda: 'return id(g_wx2_sel) == "rainy" || id(g_wx2_sel) == "pouring";' }, then: [ lvgl.widget.update: { id: wx2_bg, bg_color: 0x122B42 }, lvgl.label.update: { id: wx2_bigicon, text_color: 0x5AA6FF }, lvgl.widget.update: { id: wx2_glow, bg_color: 0x5AA6FF } ] }
+      - if: { condition: { lambda: 'return id(g_wx2_sel) == "lightning" || id(g_wx2_sel) == "lightning-rainy";' }, then: [ lvgl.widget.update: { id: wx2_bg, bg_color: 0x241A3E }, lvgl.label.update: { id: wx2_bigicon, text_color: 0xB08CFF }, lvgl.widget.update: { id: wx2_glow, bg_color: 0xB08CFF } ] }
+      - if: { condition: { lambda: 'return id(g_wx2_sel) == "snowy" || id(g_wx2_sel) == "snowy-rainy" || id(g_wx2_sel) == "hail";' }, then: [ lvgl.widget.update: { id: wx2_bg, bg_color: 0x222E44 }, lvgl.label.update: { id: wx2_bigicon, text_color: 0xEAF2FF }, lvgl.widget.update: { id: wx2_glow, bg_color: 0xEAF2FF } ] }
+      - if: { condition: { lambda: 'return id(g_wx2_sel) == "windy" || id(g_wx2_sel) == "windy-variant";' }, then: [ lvgl.widget.update: { id: wx2_bg, bg_color: 0x18302A }, lvgl.label.update: { id: wx2_bigicon, text_color: 0x8FE0C8 }, lvgl.widget.update: { id: wx2_glow, bg_color: 0x8FE0C8 } ] }
+      # --- temperature colour by value (C), static hex via if-chain ---
+      - lvgl.label.update: { id: wx2_temp, text_color: 0xFFFFFF }              # default
+      - if: { condition: { lambda: 'return id(g_wx2_tc) > -100 && id(g_wx2_tc) <= 0;' },  then: [ lvgl.label.update: { id: wx2_temp, text_color: 0x7FB2FF } ] }
+      - if: { condition: { lambda: 'return id(g_wx2_tc) > 0 && id(g_wx2_tc) < 10;' },     then: [ lvgl.label.update: { id: wx2_temp, text_color: 0x6FD0E8 } ] }
+      - if: { condition: { lambda: 'return id(g_wx2_tc) >= 10 && id(g_wx2_tc) < 18;' },   then: [ lvgl.label.update: { id: wx2_temp, text_color: 0x7FE6B0 } ] }
+      - if: { condition: { lambda: 'return id(g_wx2_tc) >= 18 && id(g_wx2_tc) < 25;' },   then: [ lvgl.label.update: { id: wx2_temp, text_color: 0xFFD061 } ] }
+      - if: { condition: { lambda: 'return id(g_wx2_tc) >= 25;' },                        then: [ lvgl.label.update: { id: wx2_temp, text_color: 0xFF7A4D } ] }
+
+interval:
+  - interval: 50ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_nav_req) && id(g_base)==10;' }
+          then:
+            - lambda: 'id(g_nav_req) = false; id(g_knob_capture) = true; id(g_wx_day) = 0;'
+            - if: { condition: { lambda: 'return id(g_nav_anim)==0;' }, then: [lvgl.page.show: { id: page_weather2, animation: move_left,   time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==1;' }, then: [lvgl.page.show: { id: page_weather2, animation: move_right,  time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==2;' }, then: [lvgl.page.show: { id: page_weather2, animation: move_top,    time: 250ms }] }
+            - if: { condition: { lambda: 'return id(g_nav_anim)==3;' }, then: [lvgl.page.show: { id: page_weather2, animation: move_bottom, time: 250ms }] }
+            - script.execute: wx2_render
+  - interval: 120ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_base)==10 && id(g_knob_delta) != 0;' }
+          then:
+            - lambda: |-
+                id(g_wx_day) += id(g_knob_delta); id(g_knob_delta) = 0;
+                int mx = (id(g_wx_n) > 0) ? id(g_wx_n) - 1 : 0;
+                if (id(g_wx_day) < 0) id(g_wx_day) = 0;
+                if (id(g_wx_day) > mx) id(g_wx_day) = mx;
+            - script.execute: wx2_render
+  # refresh while viewing so new forecast data shows (weather.yaml's sensors only call wx_render)
+  - interval: 1s
+    then:
+      - if:
+          condition: { lambda: 'return id(g_base)==10;' }
+          then: [ script.execute: wx2_render ]
+
+lvgl:
+  pages:
+    - id: page_weather2
+      bg_color: 0x0B1020
+      widgets:
+        # full-screen backdrop, tinted to the selected day's weather (updated in wx2_render)
+        - obj: { id: wx2_bg, align: CENTER, x: 0, y: 0, width: 360, height: 360, radius: 0, bg_color: 0x141A2E, bg_opa: COVER, border_width: 0 }
+        # soft glow behind the selected day (low-opacity disc, no border)
+        - obj: { id: wx2_glow, align: CENTER, x: 0, y: -140, width: 56, height: 56, radius: 28, bg_color: 0x9FC7BE, bg_opa: 30%, border_width: 0, hidden: true }
+        # day icons around the rim (uniform soft colour)
+        - label: { id: wx2_d0, align: CENTER, x: 0, y: 0, text: "", text_font: icons_wx, text_color: 0xDCE6F2, hidden: true }
+        - label: { id: wx2_d1, align: CENTER, x: 0, y: 0, text: "", text_font: icons_wx, text_color: 0xDCE6F2, hidden: true }
+        - label: { id: wx2_d2, align: CENTER, x: 0, y: 0, text: "", text_font: icons_wx, text_color: 0xDCE6F2, hidden: true }
+        - label: { id: wx2_d3, align: CENTER, x: 0, y: 0, text: "", text_font: icons_wx, text_color: 0xDCE6F2, hidden: true }
+        - label: { id: wx2_d4, align: CENTER, x: 0, y: 0, text: "", text_font: icons_wx, text_color: 0xDCE6F2, hidden: true }
+        - label: { id: wx2_d5, align: CENTER, x: 0, y: 0, text: "", text_font: icons_wx, text_color: 0xDCE6F2, hidden: true }
+        - label: { id: wx2_d6, align: CENTER, x: 0, y: 0, text: "", text_font: icons_wx, text_color: 0xDCE6F2, hidden: true }
+        # centre hero: condition icon / day / temperature / condition text
+        - label: { id: wx2_bigicon, align: CENTER, x: 0, y: -64, text: "", text_font: icons_wx_big, text_color: 0x9FC7BE }
+        - label: { id: wx2_day, align: CENTER, x: 0, y: -14, text: "", text_font: font_artist, text_color: 0x9AA6B2 }
+        - label: { id: wx2_temp, align: CENTER, x: 0, y: 20, text: "--", text_font: montserrat_34, text_color: 0xFFFFFF }
+        - label: { id: wx2_cond, align: CENTER, x: 0, y: 58, text: "", text_font: font_med, text_color: 0xCFE0F2 }
