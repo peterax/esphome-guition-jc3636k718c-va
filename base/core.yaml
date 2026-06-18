@@ -237,6 +237,8 @@ esphome:
         - script.execute: night_apply    # brightness per g_bright / night mode
         - script.execute: disp_apply     # show/hide weather + temp/humidity per settings
         - script.execute: settings_build # push the dynamic settings list into the roller
+        - script.execute: home_roller_build  # Home roller line 3 = current watchface
+        - script.execute: face_apply     # apply the saved home watchface (Classic / Neon)
         - lvgl.label.update: { id: tile1_ic, text: !lambda 'return id(g_tile1_glyph);' }   # tiles get their icon glyph now (set at priority 760)
         - lvgl.label.update: { id: tile2_ic, text: !lambda 'return id(g_tile2_glyph);' }
         - lvgl.label.update: { id: tile3_ic, text: !lambda 'return id(g_tile3_glyph);' }
@@ -563,6 +565,18 @@ globals:
     type: bool
     restore_value: yes
     initial_value: 'true'
+  - id: g_watchface    # Home watchface: 0 = Classic, 1 = Neon (persistent)
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: g_nf_glyph     # current weather MDI glyph (set when the weather state changes; reused by the Neon face)
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: g_nf_cond      # current weather condition, friendly UPPERCASE (Neon face)
+    type: std::string
+    restore_value: no
+    initial_value: '""'
   - id: g_night        # Night mode: screen dimming (persistent)
     type: bool
     restore_value: yes
@@ -862,6 +876,66 @@ script:
     then:
       - lambda: 'lv_roller_set_options(id(settings_roller)->obj, id(g_set_labels).c_str(), LV_ROLLER_MODE_NORMAL);'
       - lambda: 'lv_roller_set_options(id(wid_roller)->obj, id(g_wgrp_labels).c_str(), LV_ROLLER_MODE_NORMAL);'
+  # Home watchface: show the selected face (0 = Classic, 1 = Neon). Classic restores its
+  # weather/room widgets via disp_apply (they obey the Display settings); Neon owns its own.
+  - id: face_apply
+    then:
+      - if:
+          condition: { lambda: 'return id(g_watchface) == 1;' }
+          then:
+            - lvgl.widget.hide: lbl_clock
+            - lvgl.widget.hide: lbl_date
+            - lvgl.widget.hide: lbl_batt
+            - lvgl.widget.hide: lbl_wx_ic
+            - lvgl.widget.hide: lbl_wx_val
+            - lvgl.widget.hide: lbl_ct_ic
+            - lvgl.widget.hide: lbl_ct_val
+            - lvgl.widget.hide: lbl_ch_ic
+            - lvgl.widget.hide: lbl_ch_val
+            - lvgl.widget.show: face_neon
+            - script.execute: neon_render
+          else:
+            - lvgl.widget.hide: face_neon
+            - lvgl.widget.show: lbl_clock
+            - lvgl.widget.show: lbl_date
+            - lvgl.widget.show: lbl_batt
+            - script.execute: disp_apply
+  # Populate the Neon face widgets (called on switch + every second while it is the active face).
+  - id: neon_render
+    then:
+      - lvgl.label.update: { id: nf_hh, text: !lambda 'return id(ha_time).now().is_valid() ? id(ha_time).now().strftime("%H") : std::string("00");' }
+      - lvgl.label.update: { id: nf_mm, text: !lambda 'return id(ha_time).now().is_valid() ? id(ha_time).now().strftime("%M") : std::string("00");' }
+      - lvgl.label.update: { id: nf_wx_ic, text: !lambda 'return id(g_nf_glyph).empty() ? std::string("󰖕") : id(g_nf_glyph);' }
+      - lvgl.label.update: { id: nf_wx_cond, text: !lambda 'return id(g_nf_cond);' }
+      - lvgl.label.update:
+          id: nf_wx_temp
+          text: !lambda |-
+            if (!id(wx_temp).has_state()) return std::string("--°");
+            char b[10]; snprintf(b, sizeof(b), "%d°", (int) roundf(id(wx_temp).state)); return std::string(b);
+      - lvgl.label.update:
+          id: nf_date
+          text: !lambda |-
+            auto t = id(ha_time).now();
+            if (!t.is_valid()) return std::string("");
+            static const char* d[8] = {"","Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+            std::string day = (t.day_of_week >= 1 && t.day_of_week <= 7) ? std::string(d[t.day_of_week]) : std::string("");
+            return t.strftime("%d %b") + "   " + day;
+      - lvgl.label.update:
+          id: nf_stats
+          text: !lambda |-
+            char b[48]; std::string out;
+            if (id(room_temp).has_state()) { snprintf(b, sizeof(b), "%.1f\xC2\xB0", id(room_temp).state); out += b; }
+            if (id(room_hum).has_state()) { snprintf(b, sizeof(b), "   %d%%", (int) roundf(id(room_hum).state)); out += b; }
+            if (id(g_batt) >= 0) { snprintf(b, sizeof(b), "   %s%d%%", id(g_charging) ? "+" : "", id(g_batt)); out += b; }
+            return out;
+  # Rebuild the Home settings roller so its 3rd line shows the current watchface name.
+  - id: home_roller_build
+    then:
+      - lambda: |-
+          static const char* NAMES[2] = {"Classic", "Neon"};
+          int wf = id(g_watchface); if (wf < 0 || wf > 1) wf = 0;
+          std::string opts = std::string("Weather\nClimate\nWatchface: ") + NAMES[wf];
+          lv_roller_set_options(id(home_roller)->obj, opts.c_str(), LV_ROLLER_MODE_NORMAL);
   # Draws the battery indicator on the home screen. Charging: lightning bolt + green +
   # "filling" animation (icon cycles empty→full). On battery: static level icon.
   - id: batt_render
@@ -1032,8 +1106,12 @@ script:
                 then:
                   - lvgl.widget.show: home_roller
                   - lvgl.roller.update: { id: home_roller, animated: true, selected_index: !lambda 'return id(g_sub_idx);' }
-                  - lvgl.widget.show: disp_switch
-                  - lvgl.widget.update: { id: disp_switch, state: { checked: !lambda 'return id(g_sub_idx) == 0 ? id(g_show_weather) : id(g_show_climate);' } }
+                  - if:   # items 0/1 are toggles; item 2 (Watchface) is a tap-to-cycle, no switch
+                      condition: { lambda: 'return id(g_sub_idx) <= 1;' }
+                      then:
+                        - lvgl.widget.show: disp_switch
+                        - lvgl.widget.update: { id: disp_switch, state: { checked: !lambda 'return id(g_sub_idx) == 0 ? id(g_show_weather) : id(g_show_climate);' } }
+                      else: [ lvgl.widget.hide: disp_switch ]
                 else: [ lvgl.widget.hide: home_roller ]
             - if:   # Widgets (17): list of per-screen groups (Demo / Games / Weather)
                 condition: { lambda: 'return id(g_mode) == 17;' }
@@ -1482,7 +1560,7 @@ binary_sensor:
                       else if (id(g_mode) == 5) { if (id(g_set_idx) < id(g_set_n) - 1) id(g_set_idx)++; }
                       else if (id(g_mode) == 17) { if (id(g_wgrp_idx) < id(g_wgrp_n) - 1) id(g_wgrp_idx)++; }
                       else if (id(g_mode) == 30) { if (id(g_wopt_idx) < id(g_wcur_n) - 1) id(g_wopt_idx)++; }
-                      else { int mx = (id(g_mode) == 15) ? 3 : (id(g_mode) == 13) ? 2 : (id(g_mode) == 16) ? 3 : (id(g_mode) == 12) ? 1 : 0; if (id(g_sub_idx) < mx) id(g_sub_idx)++; }
+                      else { int mx = (id(g_mode) == 15) ? 3 : (id(g_mode) == 13) ? 2 : (id(g_mode) == 16) ? 3 : (id(g_mode) == 12) ? 2 : 0; if (id(g_sub_idx) < mx) id(g_sub_idx)++; }
                   - script.execute: ui_render
                 else:
                   - if:
@@ -1856,12 +1934,13 @@ touchscreen:
               then:
                 - lambda: 'id(g_mode) = 5;'
                 - script.execute: ui_render
-    # === HOME (12) === tap: 0=toggle weather widget, 1=toggle climate widget; right/hold=back
+    # === HOME (12) === tap: 0=toggle weather widget, 1=toggle climate widget, 2=cycle watchface; right/hold=back
     - if:
         condition: { lambda: 'return id(g_mode0) == 12;' }
         then:
           - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 0;' }, then: [ lambda: 'id(g_show_weather) = !id(g_show_weather);', script.execute: disp_apply, script.execute: ui_render ] }
           - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 1;' }, then: [ lambda: 'id(g_show_climate) = !id(g_show_climate);', script.execute: disp_apply, script.execute: ui_render ] }
+          - if: { condition: { lambda: 'return id(g_gesture) == 0 && id(g_sub_idx) == 2;' }, then: [ lambda: 'id(g_watchface) = (id(g_watchface) + 1) % 2;', script.execute: home_roller_build, script.execute: face_apply, script.execute: ui_render ] }
           - if: { condition: { lambda: 'return id(g_gesture) == 3 || id(g_gesture) == 1;' }, then: [ lambda: 'id(g_mode) = 5;', script.execute: ui_render ] }
     # === WIDGETS (17) === list of per-screen groups; tap opens one; right/hold = back to settings
     - if:
@@ -1987,7 +2066,7 @@ touchscreen:
               condition: { lambda: 'return id(g_gesture) == 0;' }
               then:
                 - lambda: |-
-                    id(g_bright)=100; id(g_night)=false; id(g_show_weather)=false; id(g_show_climate)=false; id(g_ww_on)=true; id(g_set_min)=60; id(g_beep_ww)=true; id(g_hold_talk)=true; id(g_night_from)=22; id(g_night_to)=7; id(g_blank_idx)=0; id(g_factory_reset)=true;
+                    id(g_bright)=100; id(g_night)=false; id(g_show_weather)=false; id(g_show_climate)=false; id(g_watchface)=0; id(g_ww_on)=true; id(g_set_min)=60; id(g_beep_ww)=true; id(g_hold_talk)=true; id(g_night_from)=22; id(g_night_to)=7; id(g_blank_idx)=0; id(g_factory_reset)=true;
                 - button.press: btn_restart
           - if: { condition: { lambda: 'return id(g_gesture) == 3 || id(g_gesture) == 1;' }, then: [ lambda: 'id(g_mode) = 15;', script.execute: ui_render ] }
     # === INFO (7) === any gesture = return to the settings list
@@ -2220,6 +2299,11 @@ font:
     id: font_sel
     size: 28
     glyphsets: [GF_Latin_Core]
+  # Neon watchface: huge bold digits (only 0-9 needed, kept tiny in flash)
+  - file: { type: gfonts, family: "Roboto", weight: 900 }
+    id: font_neon
+    size: 118
+    glyphs: "0123456789"
   # Material Design icons (for the control tiles) - ESPHome downloads the TTF at compile time
   - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf"
     id: icons34
@@ -2340,20 +2424,22 @@ text_sensor:
     id: wx_state
     entity_id: ${weather_entity}
     on_value:
-      - lvgl.label.update:
-          id: lbl_wx_ic
-          text: !lambda |-
-            std::string s = x;
-            if (s == "sunny") return std::string("󰖙");
-            if (s == "clear-night") return std::string("󰖔");
-            if (s == "partlycloudy") return std::string("󰖕");
-            if (s == "fog") return std::string("󰖑");
-            if (s == "windy" || s == "windy-variant") return std::string("󰖝");
-            if (s == "lightning" || s == "lightning-rainy") return std::string("󰖓");
-            if (s == "pouring") return std::string("󰖖");
-            if (s == "rainy") return std::string("󰖗");
-            if (s == "snowy" || s == "snowy-rainy" || s == "hail") return std::string("󰖘");
-            return std::string("󰖐");
+      # Map the HA condition -> MDI glyph + a friendly UPPERCASE label, stash both in globals
+      # (lbl_wx_ic reads the glyph; the Neon watchface reuses glyph + condition text).
+      - lambda: |-
+          std::string s = x, g, c;
+          if (s == "sunny") { g = "󰖙"; c = "SUNNY"; }
+          else if (s == "clear-night") { g = "󰖔"; c = "CLEAR"; }
+          else if (s == "partlycloudy") { g = "󰖕"; c = "PARTLY CLOUDY"; }
+          else if (s == "fog") { g = "󰖑"; c = "FOG"; }
+          else if (s == "windy" || s == "windy-variant") { g = "󰖝"; c = "WINDY"; }
+          else if (s == "lightning" || s == "lightning-rainy") { g = "󰖓"; c = "STORM"; }
+          else if (s == "pouring") { g = "󰖖"; c = "POURING"; }
+          else if (s == "rainy") { g = "󰖗"; c = "RAINY"; }
+          else if (s == "snowy" || s == "snowy-rainy" || s == "hail") { g = "󰖘"; c = "SNOW"; }
+          else { g = "󰖐"; c = "CLOUDY"; }
+          id(g_nf_glyph) = g; id(g_nf_cond) = c;
+      - lvgl.label.update: { id: lbl_wx_ic, text: !lambda 'return id(g_nf_glyph);' }
 ###############################################################################
 # LVGL - home page (clock + VA status) and PLAYER page (album art)
 ###############################################################################
@@ -2421,6 +2507,9 @@ interval:
             static const char* d[8] = {"","Su","Mo","Tu","We","Th","Fr","Sa"};
             std::string day = (t.day_of_week >= 1 && t.day_of_week <= 7) ? std::string(d[t.day_of_week]) : std::string("");
             return t.strftime("%d.%m") + "  " + day;
+      - if:   # Neon watchface: refresh its widgets while it is the active home face
+          condition: { lambda: 'return id(g_watchface) == 1 && id(g_base) == 0;' }
+          then: [ script.execute: neon_render ]
       # Screen-timer countdown (g_timer_active). From the button: local. From VA: HA calls finished, locally smooth.
       - if:
           condition:
@@ -2660,6 +2749,98 @@ lvgl:
             text_font: font_med
             text_color: 0xE8E8EA
             hidden: true
+        # ───────── NEON watchface (shown only when g_watchface == 1) ─────────
+        - obj:
+            id: face_neon
+            x: 0
+            y: 0
+            width: 360
+            height: 360
+            bg_opa: TRANSP
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            scrollable: false
+            clickable: false
+            hidden: true
+            widgets:
+              - obj:   # faint outer neon ring at the rim
+                  id: nf_ring_out
+                  align: CENTER
+                  width: 352
+                  height: 352
+                  radius: 176
+                  bg_opa: TRANSP
+                  border_width: 2
+                  border_color: 0xFF2E88
+                  border_opa: 45%
+                  clickable: false
+                  scrollable: false
+              - obj:   # inner neon ring framing the digits
+                  id: nf_ring_in
+                  align: CENTER
+                  width: 300
+                  height: 300
+                  radius: 150
+                  bg_opa: TRANSP
+                  border_width: 2
+                  border_color: 0x9A5BFF
+                  border_opa: 40%
+                  clickable: false
+                  scrollable: false
+              - label:   # weather icon
+                  id: nf_wx_ic
+                  align: CENTER
+                  x: -34
+                  y: -120
+                  text: "󰖕"
+                  text_font: icons34
+                  text_color: 0xBFD2DA
+              - label:   # outdoor temperature
+                  id: nf_wx_temp
+                  align: CENTER
+                  x: 26
+                  y: -123
+                  text: "--°"
+                  text_font: font_sel
+                  text_color: 0xFFFFFF
+              - label:   # condition text (UPPERCASE)
+                  id: nf_wx_cond
+                  align: CENTER
+                  y: -90
+                  text: ""
+                  text_font: font_artist
+                  text_color: 0x8A93A0
+              - label:   # HOURS
+                  id: nf_hh
+                  align: CENTER
+                  x: -76
+                  y: -2
+                  text: "00"
+                  text_font: font_neon
+                  text_color: 0xFF2E88
+              - label:   # MINUTES
+                  id: nf_mm
+                  align: CENTER
+                  x: 76
+                  y: -2
+                  text: "00"
+                  text_font: font_neon
+                  text_color: 0x9A5BFF
+              - label:   # date
+                  id: nf_date
+                  align: CENTER
+                  y: 92
+                  text: ""
+                  text_font: font_med
+                  text_color: 0x6f9a92
+              - label:   # stats: room temp · humidity · battery
+                  id: nf_stats
+                  align: CENTER
+                  y: 122
+                  text: ""
+                  text_font: font_artist
+                  text_color: 0x9AA3B0
     - id: page_mode
       bg_color: 0x000000
       widgets:
@@ -2780,9 +2961,10 @@ lvgl:
               bg_color: 0xFFB020
               bg_opa: 30%
               radius: 10
-            options:
+            options:    # 3rd line is rebuilt at runtime to "Watchface: <name>" (home_roller_build)
               - "Weather"
               - "Climate"
+              - "Watchface"
             selected_index: 0
             hidden: true
         - roller:
