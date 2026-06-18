@@ -54,10 +54,6 @@ globals:
     type: float
     restore_value: no
     initial_value: '0.0'
-  - id: g_sn_spd      # head speed (px/tick)
-    type: float
-    restore_value: no
-    initial_value: '3.2'
   - id: g_sn_dead
     type: bool
     restore_value: no
@@ -429,7 +425,7 @@ script:
     then:
       - lambda: |-
           id(g_sn_state) = 1; id(g_sn_score) = 0; id(g_sn_dead) = false;
-          id(g_sn_len) = 5; id(g_sn_ang) = -1.5708f; id(g_sn_spd) = 3.2f;   // heading up
+          id(g_sn_len) = 5; id(g_sn_ang) = -1.5708f;   // heading up
           for (int i = 0; i < 40; i++) { id(g_sn_x)[i] = 0.0f; id(g_sn_y)[i] = i * 7.0f; }
           for (int s = 0; s < 3; s++) id(g_sn_fon)[s] = false;
           for (int s = 0; s < 2; s++) { id(g_sn_skon)[s] = false; id(g_sn_skage)[s] = 0; }
@@ -576,7 +572,7 @@ interval:
                 // steer (knob detents rotate the heading)
                 int kd = id(g_knob_delta); id(g_knob_delta) = 0;
                 id(g_sn_ang) += kd * 0.26f;
-                float spd = 3.2f + id(g_sn_score) / 400.0f; if (spd > 5.5f) spd = 5.5f; id(g_sn_spd) = spd;
+                float spd = 3.2f + id(g_sn_score) / 400.0f; if (spd > 5.5f) spd = 5.5f;
                 // move head forward
                 float hx = id(g_sn_x)[0] + cosf(id(g_sn_ang)) * spd;
                 float hy = id(g_sn_y)[0] + sinf(id(g_sn_ang)) * spd;
@@ -591,7 +587,7 @@ interval:
                     if (d > 0.0001f) { id(g_sn_x)[i] = id(g_sn_x)[i-1] - dx/d*7.0f; id(g_sn_y)[i] = id(g_sn_y)[i-1] - dy/d*7.0f; }
                   }
                   // self collision (skip the neck)
-                  for (int i = 12; i < len; i++) {
+                  for (int i = 16; i < len; i++) {
                     float dx = hx - id(g_sn_x)[i], dy = hy - id(g_sn_y)[i];
                     if (dx*dx + dy*dy < 6.0f * 6.0f) { id(g_sn_dead) = true; break; }
                   }
@@ -652,7 +648,7 @@ interval:
                         - if: { condition: { lambda: 'return id(g_sn_newfruit) == 1;' }, then: [ script.execute: sn_fspr1 ] }
                         - if: { condition: { lambda: 'return id(g_sn_newfruit) == 2;' }, then: [ script.execute: sn_fspr2 ] }
                         - lambda: 'id(g_sn_newfruit) = -1;'
-                        - script.execute: sn_hud
+                  - script.execute: sn_hud    # every tick: score changes on eat, not only on spawn
                   - script.execute: sn_draw
 
 image:

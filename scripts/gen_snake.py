@@ -22,7 +22,7 @@ SPEED0 = 3.2       # head speed px/tick (50ms tick)
 TURN = 0.26        # radians turned per knob detent
 EAT  = 12.0        # head-to-fruit distance that counts as eating
 SKHIT = 13.0       # head-to-skull distance that kills
-SELF_SKIP = 12     # body segments near the head skipped in self-collision (the neck)
+SELF_SKIP = 16     # body segments near the head skipped in self-collision (the neck; margin vs tight turns)
 SELF_DIST = 6.0    # head-to-body distance that kills
 
 NFRUIT = 12        # fruit sprites in the rotation (img_sn_fruit0..N-1)
@@ -197,10 +197,6 @@ globals:
     type: float
     restore_value: no
     initial_value: '0.0'
-  - id: g_sn_spd      # head speed (px/tick)
-    type: float
-    restore_value: no
-    initial_value: '{SPEED0}'
   - id: g_sn_dead
     type: bool
     restore_value: no
@@ -264,7 +260,7 @@ script:
     then:
       - lambda: |-
           id(g_sn_state) = 1; id(g_sn_score) = 0; id(g_sn_dead) = false;
-          id(g_sn_len) = 5; id(g_sn_ang) = -1.5708f; id(g_sn_spd) = {SPEED0}f;   // heading up
+          id(g_sn_len) = 5; id(g_sn_ang) = -1.5708f;   // heading up
           for (int i = 0; i < {POOL}; i++) {{ id(g_sn_x)[i] = 0.0f; id(g_sn_y)[i] = i * {SEG_DIST}f; }}
           for (int s = 0; s < {NFSLOT}; s++) id(g_sn_fon)[s] = false;
           for (int s = 0; s < {NSKULL}; s++) {{ id(g_sn_skon)[s] = false; id(g_sn_skage)[s] = 0; }}
@@ -411,7 +407,7 @@ interval:
                 // steer (knob detents rotate the heading)
                 int kd = id(g_knob_delta); id(g_knob_delta) = 0;
                 id(g_sn_ang) += kd * {TURN}f;
-                float spd = {SPEED0}f + id(g_sn_score) / 400.0f; if (spd > 5.5f) spd = 5.5f; id(g_sn_spd) = spd;
+                float spd = {SPEED0}f + id(g_sn_score) / 400.0f; if (spd > 5.5f) spd = 5.5f;
                 // move head forward
                 float hx = id(g_sn_x)[0] + cosf(id(g_sn_ang)) * spd;
                 float hy = id(g_sn_y)[0] + sinf(id(g_sn_ang)) * spd;
@@ -485,7 +481,7 @@ interval:
                       then:
 {fspr_dispatch()}
                         - lambda: 'id(g_sn_newfruit) = -1;'
-                        - script.execute: sn_hud
+                  - script.execute: sn_hud    # every tick: score changes on eat, not only on spawn
                   - script.execute: sn_draw
 
 image:
