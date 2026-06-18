@@ -78,7 +78,7 @@ substitutions:
 packages:
   core:
     url: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va
-    ref: beta
+    ref: main
     # Pick your screens here: comment out a base/screens/*.yaml line to drop that screen
     # from the firmware. Only the clock + controls + settings live in base/core.yaml
     # (always on); everything below is optional.

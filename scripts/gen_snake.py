@@ -40,7 +40,7 @@ FRUIT_WAIT = 90    # ticks between fruit top-ups (~4.5s); halved when only 1 fru
 SKULL_WAIT = 200   # ticks between skull spawns (~10s)
 SKULL_LIFE = 220   # ticks a skull stays (~11s)
 
-BASE = "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/snake/"
+BASE = "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/main/assets/sprites/snake/"
 
 PAGE_BG  = "0x0D1E15"
 RING     = "0x3A8C4E"
