@@ -172,7 +172,7 @@ esphome:
               - lambda: 'id(g_factory_reset) = false;'
     - priority: -100
       then:
-        - light.turn_on: { id: ring_light, effect: "Rainbow", brightness: 55% }   # boot splash: spin the ring while "HELLO!" shows (turned off when the splash ends)
+        - light.turn_on: { id: ring_light, effect: "Boot", brightness: 80% }   # boot splash: azure comet circles the ring while "HELLO!" shows (turned off when the splash ends)
         - lambda: |-
             // The device has no IANA tz database, so the clock needs a POSIX TZ string. To keep the
             // `timezone` substitution friendly, map common IANA names -> POSIX here and force the
@@ -1557,6 +1557,20 @@ light:
           name: "Rainbow"
       - pulse:
           name: "Pulse"
+      - addressable_lambda:    # Boot splash: an azure comet (bright head + fading tail) circles the ring
+          name: "Boot"
+          update_interval: 40ms
+          lambda: |-
+            int n = it.size();
+            float pos = fmodf(millis() / 55.0f, (float) n);   // head position, ~1 rev / 0.7s
+            for (int i = 0; i < n; i++) {
+              float d = pos - i;                              // how far this LED is BEHIND the head
+              while (d < 0) d += n;
+              while (d >= n) d -= n;
+              float b = (d < 6.0f) ? (1.0f - d / 6.0f) : 0.0f;
+              b = b * b;                                      // ease -> tight bright head, soft tail
+              it[i] = Color((uint8_t)(2 + 58 * b), (uint8_t)(6 + 174 * b), (uint8_t)(16 + 239 * b));
+            }
       # --- Reaction effects (driven by ring_update, read state globals) ---
       - addressable_lambda:    # Assistant LISTENING: a comet (cyan) circles the ring
           name: "Listen"
