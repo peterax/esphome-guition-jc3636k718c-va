@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.2.0] - 2026-06-19
+
+### Added
+- **Watchfaces** - the home screen now has selectable looks. Classic is built in; enable the optional **Neon** face (big two-tone digits + neon rings) or copy the heavily-commented **Demo** template to build your own. Pick one in Settings → Home → Watchface with a live full-screen preview (knob switches, tap keeps).
+
+### Changed
+- Settings: clearer names (Home screen, LED Ring, Voice Assistant, Show weather / Show climate, Screen auto-off) and the selected row is styled like the swipe-up control tiles.
+- The rotary knob now wakes the screen from sleep, just like a tap.
+
 ## [2.1.6] - 2026-06-18
 
 ### Changed
