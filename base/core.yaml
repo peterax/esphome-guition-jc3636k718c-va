@@ -876,8 +876,8 @@ script:
     then:
       - lambda: 'lv_roller_set_options(id(settings_roller)->obj, id(g_set_labels).c_str(), LV_ROLLER_MODE_NORMAL);'
       - lambda: 'lv_roller_set_options(id(wid_roller)->obj, id(g_wgrp_labels).c_str(), LV_ROLLER_MODE_NORMAL);'
-  # Home watchface: show the selected face (0 = Classic, 1 = Neon). Classic restores its
-  # weather/room widgets via disp_apply (they obey the Display settings); Neon owns its own.
+  # Home watchface: show the selected face (0 = Classic, 1 = Neon). Weather/room widget
+  # visibility (on either face) is handled by disp_apply, which obeys the Display settings.
   - id: face_apply
     then:
       - if:
@@ -886,12 +886,6 @@ script:
             - lvgl.widget.hide: lbl_clock
             - lvgl.widget.hide: lbl_date
             - lvgl.widget.hide: lbl_batt
-            - lvgl.widget.hide: lbl_wx_ic
-            - lvgl.widget.hide: lbl_wx_val
-            - lvgl.widget.hide: lbl_ct_ic
-            - lvgl.widget.hide: lbl_ct_val
-            - lvgl.widget.hide: lbl_ch_ic
-            - lvgl.widget.hide: lbl_ch_val
             - lvgl.widget.show: face_neon
             - script.execute: neon_render
           else:
@@ -899,7 +893,7 @@ script:
             - lvgl.widget.show: lbl_clock
             - lvgl.widget.show: lbl_date
             - lvgl.widget.show: lbl_batt
-            - script.execute: disp_apply
+      - script.execute: disp_apply
   # Populate the Neon face widgets (called on switch + every second while it is the active face).
   - id: neon_render
     then:
@@ -1353,28 +1347,28 @@ script:
       - lambda: 'id(g_timer_active) = false; id(g_timer_paused) = false; id(g_timer_secs) = 0;'
       - script.execute: timer_render
   # Shows/hides home-screen elements per Display settings
-  - id: disp_apply
+  - id: disp_apply   # gate weather/climate widgets per settings, for whichever home face is active
     then:
+      # Classic weather (only on the Classic face)
       - if:
-          condition: { lambda: 'return id(g_show_weather);' }
-          then:
-            - lvgl.widget.show: lbl_wx_ic
-            - lvgl.widget.show: lbl_wx_val
-          else:
-            - lvgl.widget.hide: lbl_wx_ic
-            - lvgl.widget.hide: lbl_wx_val
+          condition: { lambda: 'return id(g_watchface) == 0 && id(g_show_weather);' }
+          then: [ lvgl.widget.show: lbl_wx_ic, lvgl.widget.show: lbl_wx_val ]
+          else: [ lvgl.widget.hide: lbl_wx_ic, lvgl.widget.hide: lbl_wx_val ]
+      # Classic climate (only on the Classic face)
       - if:
-          condition: { lambda: 'return id(g_show_climate);' }
-          then:
-            - lvgl.widget.show: lbl_ct_ic
-            - lvgl.widget.show: lbl_ct_val
-            - lvgl.widget.show: lbl_ch_ic
-            - lvgl.widget.show: lbl_ch_val
-          else:
-            - lvgl.widget.hide: lbl_ct_ic
-            - lvgl.widget.hide: lbl_ct_val
-            - lvgl.widget.hide: lbl_ch_ic
-            - lvgl.widget.hide: lbl_ch_val
+          condition: { lambda: 'return id(g_watchface) == 0 && id(g_show_climate);' }
+          then: [ lvgl.widget.show: lbl_ct_ic, lvgl.widget.show: lbl_ct_val, lvgl.widget.show: lbl_ch_ic, lvgl.widget.show: lbl_ch_val ]
+          else: [ lvgl.widget.hide: lbl_ct_ic, lvgl.widget.hide: lbl_ct_val, lvgl.widget.hide: lbl_ch_ic, lvgl.widget.hide: lbl_ch_val ]
+      # Neon weather (only on the Neon face)
+      - if:
+          condition: { lambda: 'return id(g_watchface) == 1 && id(g_show_weather);' }
+          then: [ lvgl.widget.show: nf_wx_ic, lvgl.widget.show: nf_wx_temp, lvgl.widget.show: nf_wx_cond ]
+          else: [ lvgl.widget.hide: nf_wx_ic, lvgl.widget.hide: nf_wx_temp, lvgl.widget.hide: nf_wx_cond ]
+      # Neon climate (only on the Neon face)
+      - if:
+          condition: { lambda: 'return id(g_watchface) == 1 && id(g_show_climate);' }
+          then: [ lvgl.widget.show: nf_ct_ic, lvgl.widget.show: nf_ct_val, lvgl.widget.show: nf_hum_ic, lvgl.widget.show: nf_hum_val ]
+          else: [ lvgl.widget.hide: nf_ct_ic, lvgl.widget.hide: nf_ct_val, lvgl.widget.hide: nf_hum_ic, lvgl.widget.hide: nf_hum_val ]
   # Night mode: ON -> dim screen to 15%, OFF -> restore brightness from settings
   - id: night_apply
     then:
