@@ -1,0 +1,17 @@
+Gyruss sprite credits
+=====================
+
+ship0..15.png, expl0..7.png
+  Derived from the "Lunar Lander" asset pack by Matt Walkden
+  (mattwalkden.itch.io / mattwalkden.com), released into the Public Domain
+  under the Creative Commons CC0 dedication. No attribution required; credited
+  here with thanks. Ship sprite pre-rotated into 16 frames; explosion sliced
+  from the 8-frame sheet.
+
+core.png (black-hole portal), enemy0..3.png (glowing orbs)
+  Cropped/scaled from a "celestial objects" pixel-art set. Used with the
+  project owner's confirmation that its license permits redistribution.
+  TODO(owner): fill in the exact source/author + license for this set.
+
+bullet.png
+  Original to this project.

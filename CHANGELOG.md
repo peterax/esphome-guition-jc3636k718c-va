@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format is based on
 ## [2.2.5] - 2026-06-19
 
 ### Added
-- New **Gyruss** game (optional carousel screen): a tube shooter - your ship orbits the rim, you auto-fire inward, foes spiral out from the centre. Turn the knob to aim, 3 lives, top-10 scores.
+- New **Gyruss** game (optional carousel screen): a tube shooter - your ship orbits the rim, you auto-fire inward, foes spiral out from a black-hole core. Turn the knob to aim; every foe that reaches the rim costs a life and bursts in an animated explosion. The ship is a pixel fighter pre-rotated into 16 frames so it always points inward, foes are glowing orbs, and a rushing starfield + concentric rings give a cheap 3D-depth tube. 3 lives, top-10 scores. (Art: Lunar Lander pack by Matt Walkden, CC0; see assets/sprites/gyruss/CREDITS.txt.)
 
 ## [2.2.4] - 2026-06-19
 

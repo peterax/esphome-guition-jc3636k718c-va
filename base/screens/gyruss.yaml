@@ -85,6 +85,35 @@ globals:
   - id: g_gy_eon
     type: bool[10]
     restore_value: no
+  # starfield (depth illusion): dots rush outward from the centre, faster as they near the rim
+  - id: g_gy_sr        # radius (px from centre)
+    type: float[10]
+    restore_value: no
+  - id: g_gy_sa        # angle (radians)
+    type: float[10]
+    restore_value: no
+  # explosion pool (expanding shockwave ring of dots) - fired when a foe reaches the rim
+  - id: g_gy_exx       # centre X (relative to screen centre, px)
+    type: float[2]
+    restore_value: no
+  - id: g_gy_exy       # centre Y
+    type: float[2]
+    restore_value: no
+  - id: g_gy_exage     # -1 = inactive, else explosion frame 0..7
+    type: int[2]
+    restore_value: no
+  - id: g_gy_shipframe # current ship rotation frame (0..15), -1 forces a refresh
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: g_gy_shipdirty # ship rotation bucket changed this tick
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: g_gy_exact     # an explosion is active or expired this tick (refresh its sprite)
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
 script:
   # position every active widget from the float arrays (constant cost, one shallow lambda)
@@ -92,6 +121,12 @@ script:
     then:
       - lambda: |-
           const float R = 148.0f;
+          // starfield (background depth) - small dots rushing outward
+          lv_obj_t *SF[10] = { id(gy_s0), id(gy_s1), id(gy_s2), id(gy_s3), id(gy_s4), id(gy_s5), id(gy_s6), id(gy_s7), id(gy_s8), id(gy_s9) };
+          for (int k = 0; k < 10; k++) {
+            float r = id(g_gy_sr)[k], a = id(g_gy_sa)[k];
+            lv_obj_set_pos(SF[k], 180 + (int) lroundf(cosf(a) * r) - 1, 180 + (int) lroundf(sinf(a) * r) - 1);
+          }
           lv_obj_t *BB[6] = { id(gy_b0), id(gy_b1), id(gy_b2), id(gy_b3), id(gy_b4), id(gy_b5) };
           for (int k = 0; k < 6; k++) {
             if (id(g_gy_bon)[k]) {
@@ -103,11 +138,65 @@ script:
           for (int k = 0; k < 10; k++) {
             if (id(g_gy_eon)[k]) {
               float r = id(g_gy_er)[k], a = id(g_gy_ea)[k];
-              lv_obj_set_pos(EE[k], 180 + (int) lroundf(cosf(a) * r) - 12, 180 + (int) lroundf(sinf(a) * r) - 12);
+              lv_obj_set_pos(EE[k], 180 + (int) lroundf(cosf(a) * r) - 13, 180 + (int) lroundf(sinf(a) * r) - 13);
             } else lv_obj_set_pos(EE[k], 400, 400);
           }
           float sa = id(g_gy_ship_ang);
-          lv_obj_set_pos(id(gy_ship), 180 + (int) lroundf(cosf(sa) * R) - 16, 180 + (int) lroundf(sinf(sa) * R) - 16);
+          lv_obj_set_pos(id(gy_ship), 180 + (int) lroundf(cosf(sa) * R) - 20, 180 + (int) lroundf(sinf(sa) * R) - 20);
+          // explosions (32px sprites) - positioned while alive, parked otherwise
+          lv_obj_t *XX[2] = { id(gy_x0), id(gy_x1) };
+          for (int s = 0; s < 2; s++) {
+            if (id(g_gy_exage)[s] >= 0) lv_obj_set_pos(XX[s], 180 + (int) lroundf(id(g_gy_exx)[s]) - 16, 180 + (int) lroundf(id(g_gy_exy)[s]) - 16);
+            else lv_obj_set_pos(XX[s], 400, 400);
+          }
+  # set the ship sprite to its current rotation frame (called only when the bucket changes)
+  - id: gy_shipspr
+    then:
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==0;' },  then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship0 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==1;' },  then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship1 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==2;' },  then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship2 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==3;' },  then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship3 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==4;' },  then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship4 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==5;' },  then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship5 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==6;' },  then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship6 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==7;' },  then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship7 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==8;' },  then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship8 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==9;' },  then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship9 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==10;' }, then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship10 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==11;' }, then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship11 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==12;' }, then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship12 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==13;' }, then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship13 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==14;' }, then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship14 } ] }
+      - if: { condition: { lambda: 'return id(g_gy_shipframe)==15;' }, then: [ lvgl.image.update: { id: gy_ship, src: img_gy_ship15 } ] }
+  # advance/hide the explosion sprites by their frame (called only while a burst is live)
+  - id: gy_explspr
+    then:
+      - if:
+          condition: { lambda: 'return id(g_gy_exage)[0] < 0;' }
+          then: [ lvgl.widget.hide: gy_x0 ]
+          else:
+            - lvgl.widget.show: gy_x0
+            - if: { condition: { lambda: 'return id(g_gy_exage)[0]==0;' }, then: [ lvgl.image.update: { id: gy_x0, src: img_gy_expl0 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[0]==1;' }, then: [ lvgl.image.update: { id: gy_x0, src: img_gy_expl1 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[0]==2;' }, then: [ lvgl.image.update: { id: gy_x0, src: img_gy_expl2 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[0]==3;' }, then: [ lvgl.image.update: { id: gy_x0, src: img_gy_expl3 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[0]==4;' }, then: [ lvgl.image.update: { id: gy_x0, src: img_gy_expl4 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[0]==5;' }, then: [ lvgl.image.update: { id: gy_x0, src: img_gy_expl5 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[0]==6;' }, then: [ lvgl.image.update: { id: gy_x0, src: img_gy_expl6 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[0]>=7;' }, then: [ lvgl.image.update: { id: gy_x0, src: img_gy_expl7 } ] }
+      - if:
+          condition: { lambda: 'return id(g_gy_exage)[1] < 0;' }
+          then: [ lvgl.widget.hide: gy_x1 ]
+          else:
+            - lvgl.widget.show: gy_x1
+            - if: { condition: { lambda: 'return id(g_gy_exage)[1]==0;' }, then: [ lvgl.image.update: { id: gy_x1, src: img_gy_expl0 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[1]==1;' }, then: [ lvgl.image.update: { id: gy_x1, src: img_gy_expl1 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[1]==2;' }, then: [ lvgl.image.update: { id: gy_x1, src: img_gy_expl2 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[1]==3;' }, then: [ lvgl.image.update: { id: gy_x1, src: img_gy_expl3 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[1]==4;' }, then: [ lvgl.image.update: { id: gy_x1, src: img_gy_expl4 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[1]==5;' }, then: [ lvgl.image.update: { id: gy_x1, src: img_gy_expl5 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[1]==6;' }, then: [ lvgl.image.update: { id: gy_x1, src: img_gy_expl6 } ] }
+            - if: { condition: { lambda: 'return id(g_gy_exage)[1]>=7;' }, then: [ lvgl.image.update: { id: gy_x1, src: img_gy_expl7 } ] }
   - id: gy_hud
     then:
       - lvgl.label.update: { id: lbl_gy_score, text: !lambda 'char b[12]; snprintf(b,sizeof(b),"%d",id(g_gy_score)); return std::string(b);' }
@@ -120,7 +209,11 @@ script:
           for (int k = 0; k < 6; k++) lv_obj_set_pos(BB[k], 400, 400);
           lv_obj_t *EE[10] = { id(gy_e0), id(gy_e1), id(gy_e2), id(gy_e3), id(gy_e4), id(gy_e5), id(gy_e6), id(gy_e7), id(gy_e8), id(gy_e9) };
           for (int k = 0; k < 10; k++) lv_obj_set_pos(EE[k], 400, 400);
+          lv_obj_t *SF[10] = { id(gy_s0), id(gy_s1), id(gy_s2), id(gy_s3), id(gy_s4), id(gy_s5), id(gy_s6), id(gy_s7), id(gy_s8), id(gy_s9) };
+          for (int k = 0; k < 10; k++) lv_obj_set_pos(SF[k], 400, 400);
           lv_obj_set_pos(id(gy_ship), 400, 400);
+      - lvgl.widget.hide: gy_x0
+      - lvgl.widget.hide: gy_x1
   - id: gy_start
     then:
       - lambda: |-
@@ -129,6 +222,9 @@ script:
           id(g_gy_fire_clk) = 0; id(g_gy_spawn_clk) = 0;
           for (int k = 0; k < 6; k++) id(g_gy_bon)[k] = false;
           for (int k = 0; k < 10; k++) id(g_gy_eon)[k] = false;
+          for (int k = 0; k < 10; k++) { id(g_gy_sr)[k] = 6.0f + (esp_random() % 168); id(g_gy_sa)[k] = (esp_random() % 62832) / 10000.0f; }
+          for (int s = 0; s < 2; s++) id(g_gy_exage)[s] = -1;
+          id(g_gy_shipframe) = -1;   // force a ship-sprite refresh on the first tick
           id(g_knob_capture) = true; id(g_knob_delta) = 0;
       - script.execute: gy_screen
       - script.execute: gy_hud
@@ -152,6 +248,8 @@ script:
       - lambda: 'id(g_knob_capture) = (id(g_gy_state) == 1 || id(g_gy_state) == 2);'
       - script.execute: gy_clear
       - lvgl.widget.hide: gy_ring
+      - lvgl.widget.hide: gy_ring2
+      - lvgl.widget.hide: gy_ring3
       - lvgl.widget.hide: gy_core
       - lvgl.widget.hide: lbl_gy_score
       - lvgl.widget.hide: lbl_gy_lives
@@ -189,6 +287,8 @@ script:
           condition: { lambda: 'return id(g_gy_state) == 1;' }
           then:
             - lvgl.widget.show: gy_ring
+            - lvgl.widget.show: gy_ring2
+            - lvgl.widget.show: gy_ring3
             - lvgl.widget.show: gy_core
             - lvgl.widget.show: lbl_gy_score
             - lvgl.widget.show: lbl_gy_lives
@@ -279,16 +379,31 @@ interval:
                     id(g_gy_eon)[k] = true; id(g_gy_er)[k] = 18.0f; id(g_gy_ea)[k] = a; break;
                   }
                 }
-                // foes spiral outward; reaching the rim costs a life only if they hit the ship
+                // age existing explosions first (8-frame sprite); refresh sprite while any is live/expiring
+                id(g_gy_exact) = false;
+                for (int s = 0; s < 2; s++) if (id(g_gy_exage)[s] >= 0) {
+                  id(g_gy_exact) = true;
+                  if (++id(g_gy_exage)[s] > 7) id(g_gy_exage)[s] = -1;
+                }
+                // foes spiral outward; ANY foe that reaches the rim costs a life and explodes there
                 float esp = 1.5f + id(g_gy_score) / 1500.0f; if (esp > 3.2f) esp = 3.2f;
                 for (int k = 0; k < 10; k++) if (id(g_gy_eon)[k]) {
                   id(g_gy_er)[k] += esp; id(g_gy_ea)[k] += 0.05f;
                   if (id(g_gy_er)[k] >= 146.0f) {
-                    float da = id(g_gy_ea)[k] - id(g_gy_ship_ang); da = atan2f(sinf(da), cosf(da));
-                    if (fabsf(da) < 0.30f) { id(g_gy_lives)--; id(g_gy_hud_dirty) = true; if (id(g_gy_lives) <= 0) id(g_gy_dead) = true; }
                     id(g_gy_eon)[k] = false;
+                    id(g_gy_lives)--; id(g_gy_hud_dirty) = true; if (id(g_gy_lives) <= 0) id(g_gy_dead) = true;
+                    for (int s = 0; s < 2; s++) if (id(g_gy_exage)[s] < 0) { id(g_gy_exx)[s] = cosf(id(g_gy_ea)[k]) * 146.0f; id(g_gy_exy)[s] = sinf(id(g_gy_ea)[k]) * 146.0f; id(g_gy_exage)[s] = 0; id(g_gy_exact) = true; break; }
                   }
                 }
+                // depth starfield: rush outward (accelerating = perspective), respawn near the centre
+                for (int k = 0; k < 10; k++) {
+                  id(g_gy_sr)[k] += id(g_gy_sr)[k] * 0.05f + 1.0f;
+                  if (id(g_gy_sr)[k] > 176.0f) { id(g_gy_sr)[k] = 4.0f + (esp_random() % 14); id(g_gy_sa)[k] = (esp_random() % 62832) / 10000.0f; }
+                }
+                // pick the ship rotation frame from the orbit angle (16 buckets); refresh only on change
+                int bk = (int) lroundf(id(g_gy_ship_ang) / 0.3926991f); bk %= 16; if (bk < 0) bk += 16;
+                id(g_gy_shipdirty) = (bk != id(g_gy_shipframe));
+                if (id(g_gy_shipdirty)) id(g_gy_shipframe) = bk;
                 // bullet vs foe (polar proximity)
                 for (int b = 0; b < 6; b++) if (id(g_gy_bon)[b]) for (int e = 0; e < 10; e++) if (id(g_gy_eon)[e]) {
                   float dr = id(g_gy_br)[b] - id(g_gy_er)[e]; if (dr < 0) dr = -dr;
@@ -297,6 +412,8 @@ interval:
                     if (fabsf(da) < 0.28f) { id(g_gy_bon)[b] = false; id(g_gy_eon)[e] = false; id(g_gy_score) += 10; id(g_gy_hud_dirty) = true; break; }
                   }
                 }
+            - if: { condition: { lambda: 'return id(g_gy_shipdirty);' }, then: [ script.execute: gy_shipspr ] }
+            - if: { condition: { lambda: 'return id(g_gy_exact);' },    then: [ script.execute: gy_explspr ] }
             - script.execute: gy_render
             - if:
                 condition: { lambda: 'return id(g_gy_dead);' }
@@ -309,17 +426,118 @@ interval:
                         - script.execute: gy_hud
 
 # Sprites are pulled from the BETA raw URLs while this lives on beta - flip /beta/ -> /main/ at merge.
+# Third-party art (see assets/sprites/gyruss/CREDITS.txt).
 image:
-  - id: img_gy_ship
-    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship.png"
+  - id: img_gy_ship0
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship0.png"
     type: RGB565
     transparency: alpha_channel
-  - id: img_gy_enemy
-    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/enemy.png"
+  - id: img_gy_ship1
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship1.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship2
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship2.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship3
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship3.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship4
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship4.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship5
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship5.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship6
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship6.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship7
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship7.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship8
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship8.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship9
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship9.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship10
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship10.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship11
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship11.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship12
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship12.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship13
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship13.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship14
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship14.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_ship15
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/ship15.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_enemy0
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/enemy0.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_enemy1
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/enemy1.png"
     type: RGB565
     transparency: alpha_channel
   - id: img_gy_enemy2
     file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/enemy2.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_enemy3
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/enemy3.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_expl0
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/expl0.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_expl1
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/expl1.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_expl2
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/expl2.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_expl3
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/expl3.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_expl4
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/expl4.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_expl5
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/expl5.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_expl6
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/expl6.png"
+    type: RGB565
+    transparency: alpha_channel
+  - id: img_gy_expl7
+    file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/expl7.png"
     type: RGB565
     transparency: alpha_channel
   - id: img_gy_bullet
@@ -330,7 +548,6 @@ image:
     file: "https://raw.githubusercontent.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/beta/assets/sprites/gyruss/core.png"
     type: RGB565
     transparency: alpha_channel
-
 lvgl:
   pages:
     - id: page_gyruss
@@ -338,25 +555,43 @@ lvgl:
       scrollbar_mode: "off"
       scrollable: false
       widgets:
-        - obj: { id: gy_ring, align: CENTER, x: 0, y: 0, width: 300, height: 300, radius: 150, bg_opa: TRANSP, border_width: 2, border_color: 0x223052, hidden: true }
+        # starfield (declared first = drawn behind everything) - parked until play
+        - obj: { id: gy_s0, x: 400, y: 400, width: 3, height: 3, radius: 999, bg_color: 0x6076A4, bg_opa: COVER, border_width: 0, pad_all: 0 }
+        - obj: { id: gy_s1, x: 400, y: 400, width: 2, height: 2, radius: 999, bg_color: 0x32466E, bg_opa: COVER, border_width: 0, pad_all: 0 }
+        - obj: { id: gy_s2, x: 400, y: 400, width: 3, height: 3, radius: 999, bg_color: 0x6076A4, bg_opa: COVER, border_width: 0, pad_all: 0 }
+        - obj: { id: gy_s3, x: 400, y: 400, width: 2, height: 2, radius: 999, bg_color: 0x32466E, bg_opa: COVER, border_width: 0, pad_all: 0 }
+        - obj: { id: gy_s4, x: 400, y: 400, width: 3, height: 3, radius: 999, bg_color: 0x6076A4, bg_opa: COVER, border_width: 0, pad_all: 0 }
+        - obj: { id: gy_s5, x: 400, y: 400, width: 2, height: 2, radius: 999, bg_color: 0x32466E, bg_opa: COVER, border_width: 0, pad_all: 0 }
+        - obj: { id: gy_s6, x: 400, y: 400, width: 3, height: 3, radius: 999, bg_color: 0x6076A4, bg_opa: COVER, border_width: 0, pad_all: 0 }
+        - obj: { id: gy_s7, x: 400, y: 400, width: 2, height: 2, radius: 999, bg_color: 0x32466E, bg_opa: COVER, border_width: 0, pad_all: 0 }
+        - obj: { id: gy_s8, x: 400, y: 400, width: 3, height: 3, radius: 999, bg_color: 0x6076A4, bg_opa: COVER, border_width: 0, pad_all: 0 }
+        - obj: { id: gy_s9, x: 400, y: 400, width: 2, height: 2, radius: 999, bg_color: 0x32466E, bg_opa: COVER, border_width: 0, pad_all: 0 }
+        # concentric guide rings (static) suggest a tube receding to the core - free depth cue
+        - obj: { id: gy_ring3, align: CENTER, x: 0, y: 0, width: 112, height: 112, radius: 56, bg_opa: TRANSP, border_width: 1, border_color: 0x1A2742, hidden: true }
+        - obj: { id: gy_ring2, align: CENTER, x: 0, y: 0, width: 200, height: 200, radius: 100, bg_opa: TRANSP, border_width: 1, border_color: 0x1E2C4A, hidden: true }
+        - obj: { id: gy_ring, align: CENTER, x: 0, y: 0, width: 300, height: 300, radius: 150, bg_opa: TRANSP, border_width: 2, border_color: 0x2A3C66, hidden: true }
         - image: { id: gy_core, align: CENTER, x: 0, y: 0, src: img_gy_core, hidden: true }
-        - image: { id: gy_e0, x: 400, y: 400, src: img_gy_enemy }
-        - image: { id: gy_e1, x: 400, y: 400, src: img_gy_enemy2 }
-        - image: { id: gy_e2, x: 400, y: 400, src: img_gy_enemy }
-        - image: { id: gy_e3, x: 400, y: 400, src: img_gy_enemy2 }
-        - image: { id: gy_e4, x: 400, y: 400, src: img_gy_enemy }
-        - image: { id: gy_e5, x: 400, y: 400, src: img_gy_enemy2 }
-        - image: { id: gy_e6, x: 400, y: 400, src: img_gy_enemy }
-        - image: { id: gy_e7, x: 400, y: 400, src: img_gy_enemy2 }
-        - image: { id: gy_e8, x: 400, y: 400, src: img_gy_enemy }
-        - image: { id: gy_e9, x: 400, y: 400, src: img_gy_enemy2 }
+        # foes: 4 glowing-orb colours cycled across the 10 slots (fixed src - no runtime swap)
+        - image: { id: gy_e0, x: 400, y: 400, src: img_gy_enemy0 }
+        - image: { id: gy_e1, x: 400, y: 400, src: img_gy_enemy1 }
+        - image: { id: gy_e2, x: 400, y: 400, src: img_gy_enemy2 }
+        - image: { id: gy_e3, x: 400, y: 400, src: img_gy_enemy3 }
+        - image: { id: gy_e4, x: 400, y: 400, src: img_gy_enemy0 }
+        - image: { id: gy_e5, x: 400, y: 400, src: img_gy_enemy1 }
+        - image: { id: gy_e6, x: 400, y: 400, src: img_gy_enemy2 }
+        - image: { id: gy_e7, x: 400, y: 400, src: img_gy_enemy3 }
+        - image: { id: gy_e8, x: 400, y: 400, src: img_gy_enemy0 }
+        - image: { id: gy_e9, x: 400, y: 400, src: img_gy_enemy1 }
         - image: { id: gy_b0, x: 400, y: 400, src: img_gy_bullet }
         - image: { id: gy_b1, x: 400, y: 400, src: img_gy_bullet }
         - image: { id: gy_b2, x: 400, y: 400, src: img_gy_bullet }
         - image: { id: gy_b3, x: 400, y: 400, src: img_gy_bullet }
         - image: { id: gy_b4, x: 400, y: 400, src: img_gy_bullet }
         - image: { id: gy_b5, x: 400, y: 400, src: img_gy_bullet }
-        - image: { id: gy_ship, x: 400, y: 400, src: img_gy_ship }
+        - image: { id: gy_ship, x: 400, y: 400, src: img_gy_ship0 }
+        # explosion sprites (8-frame), parked + hidden until a foe hits the rim
+        - image: { id: gy_x0, x: 400, y: 400, src: img_gy_expl0, hidden: true }
+        - image: { id: gy_x1, x: 400, y: 400, src: img_gy_expl0, hidden: true }
         - label: { id: lbl_gy_score, align: CENTER, x: 0, y: -150, text: "0", text_font: font_med, text_color: 0xCFE4FF, hidden: true }
         - label: { id: lbl_gy_lives, align: CENTER, x: 0, y: 150, text: "LIVES  3", text_font: font_artist, text_color: 0xFF7A6A, hidden: true }
         - label: { id: lbl_gy_title, align: CENTER, x: 0, y: -86, text: "GYRUSS", text_font: font_sel, text_color: 0x46E3D0, hidden: true }
@@ -440,7 +675,7 @@ lvgl:
         - label: { id: lbl_gy_howto1, align_to: { id: gy_hb1, align: OUT_RIGHT_MID, x: 8 }, text: "Turn knob to aim", text_font: font_med, text_color: 0xC4D2F0, hidden: true }
         - label: { id: lbl_gy_howto2, align_to: { id: gy_hb2, align: OUT_RIGHT_MID, x: 8 }, text: "You auto-fire inward", text_font: font_med, text_color: 0xC4D2F0, hidden: true }
         - label: { id: lbl_gy_howto3, align_to: { id: gy_hb3, align: OUT_RIGHT_MID, x: 8 }, text: "Blast foes before the rim", text_font: font_med, text_color: 0xC4D2F0, hidden: true }
-        - label: { id: lbl_gy_howto4, align_to: { id: gy_hb4, align: OUT_RIGHT_MID, x: 8 }, text: "3 lives - dodge & shoot", text_font: font_med, text_color: 0xC4D2F0, hidden: true }
+        - label: { id: lbl_gy_howto4, align_to: { id: gy_hb4, align: OUT_RIGHT_MID, x: 8 }, text: "Each that reaches the rim costs a life", text_font: font_med, text_color: 0xC4D2F0, hidden: true }
         - label: { id: lbl_gy_scores_t, align: CENTER, y: -116, text: "SCORES", text_font: font_sel, text_color: 0x46E3D0, hidden: true }
         - label: { id: lbl_gy_scores1, align: CENTER, x: -52, y: 0, text: "", text_align: LEFT, text_font: font_artist, text_color: 0xC4D2F0, hidden: true }
         - label: { id: lbl_gy_scores2, align: CENTER, x: 56, y: 0, text: "", text_align: LEFT, text_font: font_artist, text_color: 0xC4D2F0, hidden: true }
