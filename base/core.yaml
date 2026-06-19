@@ -649,6 +649,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  - id: g_alarm_pulse  # alarm screen: toggles each tick for the pulsing bell/scrim
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   - id: g_bright       # screen brightness in % (settings)
     type: int
     restore_value: no
@@ -1228,6 +1232,24 @@ script:
             - if:
                 condition: { lambda: 'return id(g_mode) >= 1 && id(g_mode) <= 3;' }
                 then: [lvgl.widget.update: { id: ui_head_bg, bg_color: 0x42F4DC }]
+      # Alarm screen (mode 4): show the dedicated bell layout, hide the generic overlay
+      - if:
+          condition: { lambda: 'return id(g_mode) == 4;' }
+          then:
+            - lvgl.widget.show: alarm_scrim
+            - lvgl.widget.show: alarm_bell
+            - lvgl.widget.show: alarm_title
+            - lvgl.widget.show: alarm_sub
+            - lvgl.widget.hide: ui_dim
+            - lvgl.widget.hide: ui_head_bg
+            - lvgl.widget.hide: ui_head
+            - lvgl.widget.hide: ui_big
+            - lvgl.widget.hide: ui_sub
+          else:
+            - lvgl.widget.hide: alarm_scrim
+            - lvgl.widget.hide: alarm_bell
+            - lvgl.widget.hide: alarm_title
+            - lvgl.widget.hide: alarm_sub
   - id: timer_start_local
     then:
       - lambda: |-
@@ -2389,6 +2411,12 @@ font:
     size: 28
     glyphsets: [GF_Latin_Core]
     ignore_missing_glyphs: true
+  # Big bell for the alarm screen (single MDI glyph)
+  - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf"
+    id: font_bell
+    size: 72
+    bpp: 4
+    glyphs: [ "\U000F009A" ]
   # Material Design icons (for the control tiles) - ESPHome downloads the TTF at compile time
   - file: "https://github.com/Templarian/MaterialDesign-Webfont/raw/v7.4.47/fonts/materialdesignicons-webfont.ttf"
     id: icons34
@@ -2529,6 +2557,21 @@ text_sensor:
 # LVGL - home page (clock + VA status) and PLAYER page (album art)
 ###############################################################################
 interval:
+  # Alarm screen pulse: flash the bell + scrim while the alarm is ringing (mode 4)
+  - interval: 400ms
+    then:
+      - if:
+          condition: { lambda: 'return id(g_mode) == 4;' }
+          then:
+            - lambda: 'id(g_alarm_pulse) = !id(g_alarm_pulse);'
+            - if:
+                condition: { lambda: 'return id(g_alarm_pulse);' }
+                then:
+                  - lvgl.widget.update: { id: alarm_scrim, bg_color: 0x520F0F }
+                  - lvgl.label.update: { id: alarm_bell, text_color: 0xFFFFFF }
+                else:
+                  - lvgl.widget.update: { id: alarm_scrim, bg_color: 0x2E0808 }
+                  - lvgl.label.update: { id: alarm_bell, text_color: 0xFF7A6A }
   # Boot splash: type out "HELLO!" then cross-fade to the clock (~5 s), once at startup.
   - interval: 150ms
     then:
@@ -3119,6 +3162,44 @@ lvgl:
               - "Alarm"
               - "Volume"
             selected_index: 0
+            hidden: true
+        # ───────── Alarm screen (mode 4): red scrim + pulsing bell + TIME'S UP ─────────
+        - obj:
+            id: alarm_scrim
+            x: 0
+            y: 0
+            width: 360
+            height: 360
+            radius: 0
+            border_width: 0
+            bg_color: 0x3A0A0A
+            bg_opa: COVER
+            clickable: false
+            scrollable: false
+            hidden: true
+        - label:
+            id: alarm_bell
+            align: CENTER
+            y: -52
+            text: "\U000F009A"
+            text_font: font_bell
+            text_color: 0xFFFFFF
+            hidden: true
+        - label:
+            id: alarm_title
+            align: CENTER
+            y: 38
+            text: "TIME'S UP!"
+            text_font: font_sel
+            text_color: 0xFFFFFF
+            hidden: true
+        - label:
+            id: alarm_sub
+            align: CENTER
+            y: 76
+            text: "tap to stop"
+            text_font: font_artist
+            text_color: 0xF0B4B4
             hidden: true
     - id: page_settings
       bg_color: 0x000000
