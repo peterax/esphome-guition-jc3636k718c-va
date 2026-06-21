@@ -168,6 +168,16 @@ from GitHub at compile time.
 - Fonts, images and sounds fetched from GitHub at compile time (nothing to copy locally
   except the config and the partition table).
 
+[2.2.5]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.2.5
+[2.2.4]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.2.4
+[2.2.3]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.2.3
+[2.2.2]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.2.2
+[2.2.1]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.2.1
+[2.2.0]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.2.0
+[2.1.6]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.6
+[2.1.5]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.5
+[2.1.4]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.4
+[2.1.3]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.3
 [2.1.2]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.2
 [2.1.1]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.1
 [2.1.0]: https://github.com/MichalZaniewicz/esphome-guition-jc3636k718c-va/releases/tag/v2.1.0
