@@ -33,7 +33,7 @@ online_image:
     url: "${ha_base_url}/"
     format: JPEG
     type: RGB565
-    resize: 360x360
+    resize: 200x200
     # Album art FIX: after download you must EXPLICITLY refresh the LVGL widget (it won't redraw itself)
     on_download_finished:
       - lvgl.image.update:
